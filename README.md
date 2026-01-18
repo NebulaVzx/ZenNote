@@ -19,10 +19,10 @@
 
 ```
 ZenNote/
-├── src/                    # React 前端源码
-│   ├── components/         # UI 组件
-│   ├── api/                # HTTP API 客户端
-│   ├── types/              # TypeScript 类型定义
+├── frontend/               # React 前端源码
+│   ├── src/components/     # UI 组件
+│   ├── src/api/            # HTTP API 客户端
+│   ├── src/types/          # TypeScript 类型定义
 │   └── ...
 ├── src-tauri/              # Tauri 桌面端壳 (Rust)
 ├── backend/                # Go 后端服务
@@ -35,7 +35,7 @@ ZenNote/
 └── README.md               # 本文档
 ```
 
-> **说明**：`src/` 放在根目录是 Tauri 框架的默认约定。Go 后端作为独立服务放在 `backend/` 中，这种结构在 Tauri 全栈项目中非常常见。
+> **说明**：前端与后端分别放在 `frontend/` 和 `backend/` 中，`src-tauri/` 保留 Tauri Rust 代码，结构清晰且便于后续 Web 端独立部署。
 
 ---
 
@@ -47,10 +47,16 @@ ZenNote/
 - Rust ≥ 1.70
 - Go ≥ 1.21
 
-### 1. 安装前端依赖
+### 1. 安装依赖
 
 ```bash
+# 根目录安装 Tauri CLI
 npm install
+
+# 前端依赖
+cd frontend
+npm install
+cd ..
 ```
 
 ### 2. 启动后端服务
@@ -72,7 +78,7 @@ go run .
 
 ### 3. 启动桌面端（开发模式）
 
-在**另一个终端**中运行：
+在**另一个终端**中，从项目根目录运行：
 
 ```bash
 npm run tauri dev
@@ -88,8 +94,8 @@ npm run tauri dev
 
 | 命令 | 说明 |
 |------|------|
-| `npm run dev` | 仅启动 Vite Web 前端 |
-| `npm run build` | 构建前端生产包到 `dist/` |
+| `npm run dev` | 启动 Vite Web 前端（在 `frontend/` 内） |
+| `npm run build` | 构建前端生产包到 `frontend/dist/` |
 | `npm run tauri dev` | 启动 Tauri 桌面端（开发模式） |
 | `npm run tauri build` | 打包 Tauri 桌面端安装程序 |
 | `cd backend && go run .` | 从源码启动 Go 后端 |
