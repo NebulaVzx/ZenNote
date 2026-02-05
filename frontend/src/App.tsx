@@ -17,16 +17,17 @@ function App() {
   // Load pages
   const refreshPages = useCallback(() => {
     api.listPages().then((data) => {
-      setPages(data);
+      const safeData = Array.isArray(data) ? data : [];
+      setPages(safeData);
       const map: Record<string, Page> = {};
-      data.forEach((p) => (map[p.id] = p));
+      safeData.forEach((p) => (map[p.id] = p));
       pageMap.current = map;
     });
   }, []);
 
   useEffect(() => {
     refreshPages();
-  }, [refreshPages]);
+  }, []);
 
   const openPage = useCallback(
     (pageId: string) => {

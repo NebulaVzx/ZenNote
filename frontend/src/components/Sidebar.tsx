@@ -81,7 +81,8 @@ function PageTreeItem({
 }
 
 export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onOpenSearch }: SidebarProps) {
-  const rootPages = pages.filter((p) => !p.parent_id);
+  const safePages = pages || [];
+  const rootPages = safePages.filter((p) => !p.parent_id);
 
   return (
     <div className="w-[260px] bg-[#202020] border-r border-[#2f2f2f] flex flex-col h-full">
@@ -110,7 +111,7 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onOpe
           <div key={page.id} className="group">
             <PageTreeItem
               page={page}
-              pages={pages}
+              pages={safePages}
               level={0}
               activePageId={activePageId}
               onSelectPage={onSelectPage}

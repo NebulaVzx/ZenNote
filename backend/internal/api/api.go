@@ -32,7 +32,7 @@ func listPages(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var pages []models.Page
+	pages := make([]models.Page, 0)
 	for rows.Next() {
 		var p models.Page
 		var parentID sql.NullString
