@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Plus, Search, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileText, Plus, Search, ChevronRight, ChevronDown, GripVertical } from 'lucide-react';
 import type { Page } from '../types';
 
 interface SidebarProps {
@@ -8,6 +8,7 @@ interface SidebarProps {
   onSelectPage: (page: Page) => void;
   onCreatePage: (parentId?: string) => void;
   onOpenSearch: () => void;
+  onReorderPages?: (pages: Page[]) => void;
 }
 
 function PageTreeItem({
@@ -17,6 +18,9 @@ function PageTreeItem({
   activePageId,
   onSelectPage,
   onCreatePage,
+  onDragStart,
+  onDragOver,
+  onDrop,
 }: {
   page: Page;
   pages: Page[];
@@ -24,6 +28,9 @@ function PageTreeItem({
   activePageId?: string;
   onSelectPage: (p: Page) => void;
   onCreatePage: (parentId?: string) => void;
+  onDragStart: (e: React.DragEvent, page: Page) => void;
+  onDragOver: (e: React.DragEvent, page: Page) => void;
+  onDrop: (e: React.DragEvent, page: Page) => void;
 }) {
   const children = pages.filter((p) => p.parent_id === page.id);
   const [expanded, setExpanded] = useState(true);
@@ -32,13 +39,18 @@ function PageTreeItem({
   return (
     <div>
       <div
+        draggable
+        onDragStart={(e) => onDragStart(e, page)}
+        onDragOver={(e) => onDragOver(e, page)}
+        onDrop={(e) => onDrop(e, page)}
         className={[
-          'flex items-center gap-1 px-2 py-1.5 text-sm cursor-pointer rounded mx-2',
+          'flex items-center gap-1 px-2 py-1.5 text-sm cursor-pointer rounded mx-2 select-none',
           isActive ? 'bg-[#2a2a2a] text-white' : 'text-gray-300 hover:bg-[#252525]',
         ].join(' ')}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={() => onSelectPage(page)}
       >
+        <GripVertical size={14} className="text-gray-500 cursor-grab active:cursor-grabbing" />
         {children.length > 0 ? (
           <button
             onClick={(e) => {
@@ -74,15 +86,47 @@ function PageTreeItem({
             activePageId={activePageId}
             onSelectPage={onSelectPage}
             onCreatePage={onCreatePage}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
           />
         ))}
     </div>
   );
 }
 
-export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onOpenSearch }: SidebarProps) {
+export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onOpenSearch, onReorderPages }: SidebarProps) {
   const safePages = pages || [];
   const rootPages = safePages.filter((p) => !p.parent_id);
+
+  const handleDragStart = (e: React.DragEvent, page: Page) => {
+    e.dataTransfer.setData('text/plain', page.id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, _page: Page) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetPage: Page) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData('text/plain');
+    if (draggedId === targetPage.id) return;
+
+    const draggedPage = safePages.find((p) => p.id === draggedId);
+    if (!draggedPage || onReorderPages) {
+      // Build new order: move dragged before target if target is root, else reparent
+      const isTargetRoot = !targetPage.parent_id;
+      const updated = safePages.map((p) => {
+        if (p.id === draggedId) {
+          return { ...p, parent_id: isTargetRoot ? undefined : targetPage.parent_id || targetPage.id };
+        }
+        return p;
+      });
+      onReorderPages?.(updated);
+    }
+  };
 
   return (
     <div className="w-[260px] bg-[#202020] border-r border-[#2f2f2f] flex flex-col h-full">
@@ -116,6 +160,9 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onOpe
               activePageId={activePageId}
               onSelectPage={onSelectPage}
               onCreatePage={onCreatePage}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
             />
           </div>
         ))}

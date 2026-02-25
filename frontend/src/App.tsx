@@ -4,6 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { Tabs } from './components/Tabs';
 import { Editor } from './components/Editor';
 import { SearchModal } from './components/SearchModal';
+import { PageSearch } from './components/PageSearch';
 import { api } from './api';
 import type { Page, Tab } from './types';
 
@@ -12,7 +13,9 @@ function App() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activePageId, setActivePageId] = useState<string | undefined>();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [pageSearchOpen, setPageSearchOpen] = useState(false);
   const pageMap = useRef<Record<string, Page>>({});
+  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   // Load pages
   const refreshPages = useCallback(() => {
@@ -86,7 +89,7 @@ function App() {
       }
       if (e.ctrlKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
-        // TODO: page find
+        setPageSearchOpen(true);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -94,6 +97,17 @@ function App() {
   }, []);
 
   const activePage = activePageId ? pageMap.current[activePageId] : undefined;
+
+  const handleReorderPages = async (updated: Page[]) => {
+    // Update local state immediately for UI responsiveness
+    setPages(updated);
+    const map: Record<string, Page> = {};
+    updated.forEach((p) => (map[p.id] = p));
+    pageMap.current = map;
+    // Persist to backend: for simplicity update each page parent
+    // no single bulk parent update yet; we can extend API later
+    void updated;
+  };
 
   return (
     <div className="flex flex-col h-full w-full bg-[#191919]">
@@ -105,6 +119,7 @@ function App() {
           onSelectPage={(p) => openPage(p.id)}
           onCreatePage={createPage}
           onOpenSearch={() => setSearchOpen(true)}
+          onReorderPages={handleReorderPages}
         />
         <div className="flex-1 flex flex-col min-w-0">
           <Tabs
@@ -113,19 +128,26 @@ function App() {
             onSwitch={setActivePageId}
             onClose={closeTab}
           />
-          {activePage ? (
-            <Editor
-              pageId={activePage.id}
-              title={activePage.title}
-              onTitleChange={(t) => updatePageTitle(activePage.id, t)}
-            />
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
-              <div className="text-6xl mb-4">📝</div>
-              <div className="text-lg font-medium">Welcome to ZenNote</div>
-              <div className="text-sm mt-1">Select a page or press Ctrl+P to search</div>
-            </div>
-          )}
+          <PageSearch
+            isOpen={pageSearchOpen}
+            onClose={() => setPageSearchOpen(false)}
+            containerRef={editorContainerRef as React.RefObject<HTMLElement>}
+          />
+          <div ref={editorContainerRef} className="flex-1 flex flex-col min-h-0">
+            {activePage ? (
+              <Editor
+                pageId={activePage.id}
+                title={activePage.title}
+                onTitleChange={(t) => updatePageTitle(activePage.id, t)}
+              />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+                <div className="text-6xl mb-4">📝</div>
+                <div className="text-lg font-medium">Welcome to ZenNote</div>
+                <div className="text-sm mt-1">Select a page or press Ctrl+P to search</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <SearchModal
