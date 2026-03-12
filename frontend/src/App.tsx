@@ -14,12 +14,14 @@ function App() {
   const [activePageId, setActivePageId] = useState<string | undefined>();
   const [searchOpen, setSearchOpen] = useState(false);
   const [pageSearchOpen, setPageSearchOpen] = useState(false);
+  const [pageSearchQuery, setPageSearchQuery] = useState('');
+  const [pageSearchTotal, setPageSearchTotal] = useState(0);
+  const [pageSearchCurrentIndex, setPageSearchCurrentIndex] = useState(0);
   const pageMap = useRef<Record<string, Page>>({});
-  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   // Load pages
   const refreshPages = useCallback(() => {
-    api.listPages().then((data) => {
+    return api.listPages().then((data) => {
       const safeData = Array.isArray(data) ? data : [];
       setPages(safeData);
       const map: Record<string, Page> = {};
@@ -32,18 +34,15 @@ function App() {
     refreshPages();
   }, []);
 
-  const openPage = useCallback(
-    (pageId: string) => {
-      const page = pageMap.current[pageId];
-      if (!page) return;
-      setTabs((prev) => {
-        if (prev.find((t) => t.pageId === pageId)) return prev;
-        return [...prev, { pageId, title: page.title }];
-      });
-      setActivePageId(pageId);
-    },
-    []
-  );
+  const openPage = useCallback((pageId: string) => {
+    const page = pageMap.current[pageId];
+    if (!page) return;
+    setTabs((prev) => {
+      if (prev.find((t) => t.pageId === pageId)) return prev;
+      return [...prev, { pageId, title: page.title }];
+    });
+    setActivePageId(pageId);
+  }, []);
 
   const createPage = useCallback(
     async (parentId?: string) => {
@@ -73,11 +72,29 @@ function App() {
     async (pageId: string, title: string) => {
       await api.updatePage(pageId, title);
       await refreshPages();
-      setTabs((prev) =>
-        prev.map((t) => (t.pageId === pageId ? { ...t, title } : t))
-      );
+      setTabs((prev) => prev.map((t) => (t.pageId === pageId ? { ...t, title } : t)));
     },
     [refreshPages]
+  );
+
+  const deletePage = useCallback(
+    async (pageId: string) => {
+      await api.deletePage(pageId);
+      await refreshPages();
+      closeTab(pageId);
+    },
+    [refreshPages, closeTab]
+  );
+
+  const deletePages = useCallback(
+    async (pageIds: string[]) => {
+      for (const id of pageIds) {
+        await api.deletePage(id);
+        closeTab(id);
+      }
+      await refreshPages();
+    },
+    [refreshPages, closeTab]
   );
 
   // Global shortcuts
@@ -96,17 +113,37 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // Reset search index when total changes
+  useEffect(() => {
+    if (pageSearchCurrentIndex >= pageSearchTotal && pageSearchTotal > 0) {
+      setPageSearchCurrentIndex(0);
+    }
+  }, [pageSearchTotal, pageSearchCurrentIndex]);
+
   const activePage = activePageId ? pageMap.current[activePageId] : undefined;
 
   const handleReorderPages = async (updated: Page[]) => {
-    // Update local state immediately for UI responsiveness
     setPages(updated);
     const map: Record<string, Page> = {};
     updated.forEach((p) => (map[p.id] = p));
     pageMap.current = map;
-    // Persist to backend: for simplicity update each page parent
-    // no single bulk parent update yet; we can extend API later
     void updated;
+  };
+
+  const handlePageSearchClose = () => {
+    setPageSearchOpen(false);
+    setPageSearchQuery('');
+    setPageSearchCurrentIndex(0);
+  };
+
+  const handlePageSearchNext = () => {
+    if (pageSearchTotal === 0) return;
+    setPageSearchCurrentIndex((prev) => (prev + 1 >= pageSearchTotal ? 0 : prev + 1));
+  };
+
+  const handlePageSearchPrev = () => {
+    if (pageSearchTotal === 0) return;
+    setPageSearchCurrentIndex((prev) => (prev - 1 < 0 ? pageSearchTotal - 1 : prev - 1));
   };
 
   return (
@@ -118,27 +155,34 @@ function App() {
           activePageId={activePageId}
           onSelectPage={(p) => openPage(p.id)}
           onCreatePage={createPage}
+          onDeletePage={deletePage}
+          onDeletePages={deletePages}
           onOpenSearch={() => setSearchOpen(true)}
           onReorderPages={handleReorderPages}
         />
         <div className="flex-1 flex flex-col min-w-0">
-          <Tabs
-            tabs={tabs}
-            activePageId={activePageId}
-            onSwitch={setActivePageId}
-            onClose={closeTab}
-          />
-          <PageSearch
-            isOpen={pageSearchOpen}
-            onClose={() => setPageSearchOpen(false)}
-            containerRef={editorContainerRef as React.RefObject<HTMLElement>}
-          />
-          <div ref={editorContainerRef} className="flex-1 flex flex-col min-h-0">
+          <Tabs tabs={tabs} activePageId={activePageId} onSwitch={setActivePageId} onClose={closeTab} />
+          {pageSearchOpen && (
+            <PageSearch
+              query={pageSearchQuery}
+              onQueryChange={setPageSearchQuery}
+              current={pageSearchTotal > 0 ? pageSearchCurrentIndex + 1 : 0}
+              total={pageSearchTotal}
+              onNext={handlePageSearchNext}
+              onPrev={handlePageSearchPrev}
+              onClose={handlePageSearchClose}
+            />
+          )}
+          <div className="flex-1 flex flex-col min-h-0">
             {activePage ? (
               <Editor
                 pageId={activePage.id}
                 title={activePage.title}
                 onTitleChange={(t) => updatePageTitle(activePage.id, t)}
+                searchQuery={pageSearchQuery}
+                currentSearchIndex={pageSearchCurrentIndex}
+                onSearchMatchCountChange={setPageSearchTotal}
+                onEditorInput={() => setPageSearchQuery('')}
               />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
@@ -150,11 +194,7 @@ function App() {
           </div>
         </div>
       </div>
-      <SearchModal
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onSelect={(id) => openPage(id)}
-      />
+      <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onSelect={(id) => openPage(id)} />
     </div>
   );
 }

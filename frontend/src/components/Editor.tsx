@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { api } from '../api';
 import { SlashCommand, type SlashItem } from './SlashCommand';
 import hljs from 'highlight.js';
@@ -9,6 +9,10 @@ interface EditorProps {
   pageId: string;
   title: string;
   onTitleChange: (title: string) => void;
+  searchQuery: string;
+  currentSearchIndex: number;
+  onSearchMatchCountChange: (count: number) => void;
+  onEditorInput: () => void;
 }
 
 const PLACEHOLDERS: Record<BlockType, string> = {
@@ -22,27 +26,29 @@ const PLACEHOLDERS: Record<BlockType, string> = {
   divider: '',
 };
 
-const TYPE_ICONS: Record<BlockType, string> = {
-  paragraph: '',
-  heading: '',
-  bullet_list: '•',
-  numbered_list: '1.',
-  todo_list: '☐',
-  code: '',
-  toggle: '▶',
-  divider: '',
-};
-
 function generateId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export function Editor({ pageId, title, onTitleChange }: EditorProps) {
+function escapeRegExp(str: string) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function Editor({
+  pageId,
+  title,
+  onTitleChange,
+  searchQuery,
+  currentSearchIndex,
+  onSearchMatchCountChange,
+  onEditorInput,
+}: EditorProps) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [loaded, setLoaded] = useState(false);
   const blockRefs = useRef<(HTMLDivElement | null)[]>([]);
   const saveTimer = useRef<number | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
   // Slash command state
   const [slashOpen, setSlashOpen] = useState(false);
@@ -71,46 +77,104 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
   // Load blocks
   useEffect(() => {
     setLoaded(false);
+    setActiveIdx(null);
     api.getBlocks(pageId).then((data) => {
-      setBlocks(data.length ? data : [createEmptyBlock()]);
+      const safe = data.length ? data : [createEmptyBlock()];
+      setBlocks(safe);
       setLoaded(true);
     });
   }, [pageId, createEmptyBlock]);
 
-  // Auto save
-  useEffect(() => {
-    if (!loaded) return;
-    if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => {
-      api.updateBlocks(pageId, blocks).catch(console.error);
-    }, 1500);
-    return () => {
-      if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    };
-  }, [blocks, pageId, loaded]);
-
-  // Highlight code blocks after render
-  useEffect(() => {
-    if (!loaded) return;
-    editorRef.current?.querySelectorAll('pre code').forEach((el) => {
-      hljs.highlightElement(el as HTMLElement);
-    });
-  }, [blocks, loaded]);
-
-  const updateBlock = (idx: number, patch: Partial<Block>) => {
+  const updateBlock = useCallback((idx: number, patch: Partial<Block>) => {
     setBlocks((prev) => {
       const next = [...prev];
       next[idx] = { ...next[idx], ...patch, updated_at: Date.now() };
       return next;
     });
-  };
+  }, []);
 
-  const insertBlock = (afterIdx: number, type: BlockType = 'paragraph') => {
+  const getBlockText = (idx: number) => blockRefs.current[idx]?.innerText || '';
+
+  const flushBlock = useCallback((idx: number) => {
+    const text = getBlockText(idx);
+    setBlocks((prev) => {
+      if (!prev[idx]) return prev;
+      if (prev[idx].content === text) return prev;
+      const next = [...prev];
+      next[idx] = { ...next[idx], content: text, updated_at: Date.now() };
+      return next;
+    });
+  }, []);
+
+  const flushAllBlocks = useCallback(() => {
     setBlocks((prev) => {
       const next = [...prev];
-      next.splice(afterIdx + 1, 0, { ...createEmptyBlock(), type });
+      let changed = false;
+      next.forEach((b, i) => {
+        const text = blockRefs.current[i]?.innerText || '';
+        if (b.content !== text) {
+          next[i] = { ...b, content: text, updated_at: Date.now() };
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  // Auto save from DOM
+  useEffect(() => {
+    if (!loaded) return;
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      flushAllBlocks();
+      const payload = blocks.map((b, i) => {
+        const text = blockRefs.current[i]?.innerText || '';
+        return { ...b, content: text };
+      });
+      api.updateBlocks(pageId, payload).catch(console.error);
+    }, 1500);
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    };
+  }, [blocks, pageId, loaded, flushAllBlocks]);
+
+  // Compute search match count (use DOM text for accuracy)
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      onSearchMatchCountChange(0);
+      return;
+    }
+    let count = 0;
+    const q = searchQuery.toLowerCase();
+    blocks.forEach((b, i) => {
+      const text = activeIdx === i ? getBlockText(i) : b.content;
+      if (!text) return;
+      const parts = text.toLowerCase().split(q);
+      count += parts.length - 1;
+    });
+    onSearchMatchCountChange(count);
+  }, [blocks, activeIdx, searchQuery, onSearchMatchCountChange]);
+
+  // Scroll to current search match
+  useEffect(() => {
+    if (!searchQuery.trim() || currentSearchIndex < 0) return;
+    const el = editorRef.current?.querySelector(`[data-search-match="${currentSearchIndex}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [currentSearchIndex, searchQuery]);
+
+  const insertBlock = (afterIdx: number, type: BlockType = 'paragraph') => {
+    flushBlock(afterIdx);
+    setBlocks((prev) => {
+      const next = [...prev];
+      const nb = { ...createEmptyBlock(), type };
+      next.splice(afterIdx + 1, 0, nb);
       return next.map((b, i) => ({ ...b, sort_order: i }));
     });
+    setSlashOpen(false);
+    setToolbarVisible(false);
+    setActiveIdx(afterIdx + 1);
     setTimeout(() => {
       const el = blockRefs.current[afterIdx + 1];
       el?.focus();
@@ -120,49 +184,71 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
 
   const removeBlock = (idx: number) => {
     setBlocks((prev) => {
-      if (prev.length <= 1) return prev;
+      if (prev.length <= 1) {
+        // Turn the last block back into a paragraph instead of removing it
+        const next = [...prev];
+        next[idx] = { ...next[idx], type: 'paragraph', content: '', props: '{}', updated_at: Date.now() };
+        return next;
+      }
       const next = [...prev];
       next.splice(idx, 1);
       return next.map((b, i) => ({ ...b, sort_order: i }));
     });
+    const targetIdx = Math.max(0, idx - 1);
+    setActiveIdx(targetIdx);
     setTimeout(() => {
-      const targetIdx = Math.max(0, idx - 1);
       const el = blockRefs.current[targetIdx];
       el?.focus();
       placeCaretAtEnd(el);
     }, 0);
   };
 
-  const getBlockText = (idx: number) => blockRefs.current[idx]?.innerText || '';
-
   const checkMarkdownShortcut = (idx: number, text: string) => {
     if (text === '# ') {
       updateBlock(idx, { type: 'heading', content: '', props: JSON.stringify({ level: 1 }) });
+      setBlockText(idx, '');
       return true;
     }
     if (text === '## ') {
       updateBlock(idx, { type: 'heading', content: '', props: JSON.stringify({ level: 2 }) });
+      setBlockText(idx, '');
       return true;
     }
     if (text === '- ') {
       updateBlock(idx, { type: 'bullet_list', content: '' });
+      setBlockText(idx, '');
       return true;
     }
     if (text === '1. ') {
       updateBlock(idx, { type: 'numbered_list', content: '' });
+      setBlockText(idx, '');
       return true;
     }
     if (text === '[] ') {
-      updateBlock(idx, { type: 'todo_list', content: '' });
+      updateBlock(idx, { type: 'todo_list', content: '', props: JSON.stringify({ checked: false }) });
+      setBlockText(idx, '');
       return true;
     }
     if (text === '> ') {
       updateBlock(idx, { type: 'paragraph', content: '' });
+      setBlockText(idx, '');
       return true;
     }
     if (text.startsWith('```')) {
-      const lang = text.slice(3).trim();
-      updateBlock(idx, { type: 'code', content: '', props: JSON.stringify({ language: lang || 'text' }) });
+      let lang = text.slice(3).trim() || 'text';
+      const aliasMap: Record<string, string> = {
+        ts: 'typescript',
+        js: 'javascript',
+        py: 'python',
+        rb: 'ruby',
+        sh: 'bash',
+        yml: 'yaml',
+        md: 'markdown',
+        hs: 'haskell',
+      };
+      if (aliasMap[lang]) lang = aliasMap[lang];
+      updateBlock(idx, { type: 'code', content: '', props: JSON.stringify({ language: lang }) });
+      setBlockText(idx, '');
       return true;
     }
     return false;
@@ -188,16 +274,22 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
     const idx = slashIdx;
     if (item.type === 'divider') {
       updateBlock(idx, { type: 'divider', content: '' });
+      setBlockText(idx, '');
     } else if (item.type === 'code') {
       updateBlock(idx, { type: 'code', content: '', props: JSON.stringify({ language: 'typescript' }) });
+      setBlockText(idx, '');
     } else if (item.type === 'toggle') {
       updateBlock(idx, { type: 'toggle', content: '' });
+      setBlockText(idx, '');
     } else if (item.label === 'Heading 1') {
       updateBlock(idx, { type: 'heading', props: JSON.stringify({ level: 1 }) });
+      setBlockText(idx, '');
     } else if (item.label === 'Heading 2') {
       updateBlock(idx, { type: 'heading', props: JSON.stringify({ level: 2 }) });
+      setBlockText(idx, '');
     } else {
       updateBlock(idx, { type: item.type });
+      setBlockText(idx, '');
     }
     setTimeout(() => {
       const el = blockRefs.current[idx];
@@ -215,14 +307,14 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
       if (slashOpen) return;
       if (blocks[idx].type === 'code') {
         document.execCommand('insertText', false, '\n');
-        updateBlock(idx, { content: el?.innerText || '' });
       } else {
+        flushBlock(idx);
         insertBlock(idx);
       }
       return;
     }
 
-    if (e.key === 'Backspace' && text === '') {
+    if (e.key === 'Backspace' && text.trim() === '') {
       e.preventDefault();
       if (slashOpen) setSlashOpen(false);
       removeBlock(idx);
@@ -232,6 +324,7 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
     if (e.key === 'Escape') {
       setSlashOpen(false);
       setToolbarVisible(false);
+      el?.blur();
       return;
     }
 
@@ -242,6 +335,8 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
         const prevEl = blockRefs.current[idx - 1];
         if (prevEl && rect.top <= prevEl.getBoundingClientRect().bottom) {
           e.preventDefault();
+          flushBlock(idx);
+          setActiveIdx(idx - 1);
           prevEl.focus();
           placeCaretAtEnd(prevEl);
         }
@@ -254,6 +349,8 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
         const nextEl = blockRefs.current[idx + 1];
         if (nextEl && rect.bottom >= nextEl.getBoundingClientRect().top) {
           e.preventDefault();
+          flushBlock(idx);
+          setActiveIdx(idx + 1);
           nextEl.focus();
           placeCaretAtEnd(nextEl);
         }
@@ -261,11 +358,23 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
     }
   };
 
-  const handleInput = (idx: number) => {
-    const el = blockRefs.current[idx];
-    const text = el?.innerText || '';
+  const normalizeText = (text: string) => text.replace(/\u00A0/g, ' ');
 
-    // slash command detection
+  const handleInput = (idx: number) => {
+    onEditorInput();
+    const el = blockRefs.current[idx];
+    const text = normalizeText(el?.innerText || '');
+
+    // Real-time code block highlight so typing is visible
+    const block = blocks[idx];
+    if (block?.type === 'code' && el) {
+      const props = JSON.parse(block.props || '{}');
+      const preCode = el.parentElement?.querySelector('pre code');
+      if (preCode) {
+        preCode.innerHTML = hljs.highlight(text || '', { language: props.language || 'text' }).value;
+      }
+    }
+
     if (text === '/') {
       showSlashCommand(idx);
       return;
@@ -280,9 +389,20 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
     }
 
     const wasShortcut = checkMarkdownShortcut(idx, text);
-    if (!wasShortcut) {
-      updateBlock(idx, { content: text });
+    if (wasShortcut) {
+      // Markdown shortcut handled
     }
+  };
+
+  const handleBlur = (idx: number, e: React.FocusEvent<HTMLDivElement>) => {
+    const related = e.relatedTarget as HTMLElement | null;
+    const container = document.querySelector(`[data-block-idx="${idx}"]`);
+    if (container && related && container.contains(related)) {
+      // Focus moved within same block (e.g. checkbox), keep active
+      return;
+    }
+    flushBlock(idx);
+    setActiveIdx(null);
   };
 
   const handleMouseUp = () => {
@@ -312,7 +432,7 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
       case 'heading':
         return base + ' text-2xl font-semibold';
       case 'code':
-        return 'hidden'; // rendered via pre/code
+        return 'hidden';
       case 'divider':
         return 'py-2';
       default:
@@ -325,9 +445,66 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
     updateBlock(idx, { props: JSON.stringify({ ...props, expanded: !props.expanded }) });
   };
 
+  const setBlockText = (idx: number, text: string) => {
+    const el = blockRefs.current[idx];
+    if (el) el.innerText = text;
+  };
+
+  const activateBlock = (idx: number) => {
+    flushAllBlocks();
+    setActiveIdx(idx);
+    setTimeout(() => {
+      const el = blockRefs.current[idx];
+      if (el) {
+        el.focus();
+        placeCaretAtEnd(el);
+      }
+    }, 0);
+  };
+
+  const renderSearchContent = (text: string, baseCounter: { current: number }) => {
+    const q = searchQuery.trim();
+    if (!q) return text;
+    const parts = text.split(new RegExp(`(${escapeRegExp(q)})`, 'gi'));
+    return parts.map((part, i) => {
+      if (part.toLowerCase() === q.toLowerCase()) {
+        const idx = baseCounter.current++;
+        const isCurrent = idx === currentSearchIndex;
+        return (
+          <span
+            key={i}
+            className={`rounded px-0.5 ${isCurrent ? 'bg-yellow-500 text-black font-medium' : 'bg-yellow-600/60 text-white'}`}
+            data-search-match={idx}
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
+  // Initialize editable innerText when block type/id changes or first mounts
+  useLayoutEffect(() => {
+    if (!loaded) return;
+    blocks.forEach((b, i) => {
+      const el = blockRefs.current[i];
+      if (!el) return;
+      if (activeIdx === i) {
+        if (el.innerText === '' && b.content) {
+          el.innerText = b.content;
+        }
+      } else {
+        el.innerText = b.content;
+      }
+    });
+  }, [blocks, loaded, activeIdx]);
+
   if (!loaded) {
     return <div className="flex-1 p-8 text-gray-500">Loading...</div>;
   }
+
+  const searchCounter = { current: 0 };
 
   return (
     <div ref={editorRef} className="flex-1 flex flex-col h-full overflow-y-auto relative" onMouseUp={handleMouseUp}>
@@ -357,25 +534,36 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
         <div className="space-y-1">
           {blocks.map((block, idx) => {
             const props = JSON.parse(block.props || '{}');
+            const isActive = activeIdx === idx;
+
             if (block.type === 'toggle') {
               return (
-                <div key={block.id} className="flex items-start gap-2 group">
+                <div key={block.id} data-block-idx={idx} className="flex items-start gap-2 group">
                   <button onClick={() => toggleExpand(idx)} className="mt-2 w-6 text-center text-gray-400 select-none shrink-0 hover:text-gray-200">
                     {props.expanded ? '▼' : '▶'}
                   </button>
                   <div className="flex-1">
-                    <div
-                      ref={(el) => { blockRefs.current[idx] = el; }}
-                      contentEditable
-                      suppressContentEditableWarning
-                      data-placeholder={PLACEHOLDERS.toggle}
-                      className="py-1.5 px-1 outline-none text-gray-200 zen-editor rounded hover:bg-[#1e1e1e] font-medium"
-                      onKeyDown={(e) => handleKeyDown(e, idx)}
-                      onInput={() => handleInput(idx)}
-                      onBlur={() => handleInput(idx)}
-                    >
-                      {block.content}
-                    </div>
+                    {isActive ? (
+                      <div
+                        ref={(el) => { blockRefs.current[idx] = el; }}
+                        contentEditable
+                        suppressContentEditableWarning
+                        data-placeholder={PLACEHOLDERS.toggle}
+                        className="py-1.5 px-1 outline-none text-gray-200 zen-editor rounded hover:bg-[#1e1e1e] font-medium"
+                        onKeyDown={(e) => handleKeyDown(e, idx)}
+                        onInput={() => handleInput(idx)}
+                        onBlur={(e) => handleBlur(idx, e)}
+                        onFocus={() => setActiveIdx(idx)}
+                      />
+                    ) : (
+                      <div
+                        ref={(el) => { blockRefs.current[idx] = el; }}
+                        className="py-1.5 px-1 text-gray-200 rounded hover:bg-[#1e1e1e] font-medium cursor-text"
+                        onClick={() => activateBlock(idx)}
+                      >
+                        {renderSearchContent(block.content, searchCounter)}
+                      </div>
+                    )}
                     {props.expanded && (
                       <div className="pl-4 border-l-2 border-[#333] mt-1 text-gray-400 text-sm">
                         Toggle content placeholder (nested blocks coming soon)
@@ -385,47 +573,89 @@ export function Editor({ pageId, title, onTitleChange }: EditorProps) {
                 </div>
               );
             }
+
+            // Icon / checkbox for list types
+            let leftIcon: React.ReactNode = null;
+            if (block.type === 'bullet_list') leftIcon = <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">•</span>;
+            else if (block.type === 'numbered_list') leftIcon = <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">1.</span>;
+            else if (block.type === 'todo_list') {
+              leftIcon = (
+                <input
+                  type="checkbox"
+                  tabIndex={-1}
+                  className="mt-2.5 w-4 h-4 accent-[#6366f1] cursor-pointer shrink-0"
+                  checked={!!props.checked}
+                  onChange={(e) => updateBlock(idx, { props: JSON.stringify({ ...props, checked: e.target.checked }) })}
+                />
+              );
+            }
+
             return (
-              <div key={block.id} className="flex items-start gap-2 group">
-                {block.type !== 'paragraph' && block.type !== 'heading' && block.type !== 'code' && block.type !== 'divider' && (
-                  <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">{TYPE_ICONS[block.type]}</span>
-                )}
+              <div key={block.id} data-block-idx={idx} className="flex items-start gap-2 group">
+                {leftIcon}
                 {block.type === 'divider' ? (
                   <div className="flex-1 py-3">
                     <hr className="border-[#2f2f2f]" />
                   </div>
                 ) : block.type === 'code' ? (
-                  <div className="flex-1 relative">
-                    <pre className="py-2 px-3 text-sm font-mono bg-[#151515] text-gray-300 rounded border border-[#2f2f2f] whitespace-pre-wrap">
-                      <code className={`language-${props.language || 'text'}`}>
-                        {block.content}
-                      </code>
+                  <div className="flex-1 relative group min-w-0">
+                    <div className="flex items-center justify-between px-2 py-1 bg-[#1a1a1a] rounded-t border-x border-t border-[#2f2f2f]">
+                      <span className="text-xs text-gray-500 font-medium">Code block</span>
+                      <select
+                        value={props.language || 'text'}
+                        onChange={(e) => updateBlock(idx, { props: JSON.stringify({ ...props, language: e.target.value }) })}
+                        className="text-xs bg-[#252525] text-gray-300 border border-[#333] rounded px-1.5 py-0.5 outline-none hover:border-[#444]"
+                      >
+                        {['text','typescript','javascript','python','go','rust','html','css','json','sql','bash','java','cpp','c','php','ruby','swift','kotlin'].map((lang) => (
+                          <option key={lang} value={lang}>{lang}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <pre className="py-2 px-3 text-sm font-mono bg-[#151515] text-gray-300 rounded-b border-x border-b border-[#2f2f2f] whitespace-pre-wrap overflow-x-auto max-h-[500px] min-w-0">
+                      <code
+                        className={`language-${props.language || 'text'}`}
+                        dangerouslySetInnerHTML={{
+                          __html: hljs.highlight(block.content || '', { language: props.language || 'text' }).value,
+                        }}
+                      />
                     </pre>
                     <div
                       ref={(el) => { blockRefs.current[idx] = el; }}
                       contentEditable
                       suppressContentEditableWarning
-                      className="absolute inset-0 py-2 px-3 text-sm font-mono text-transparent caret-white outline-none whitespace-pre-wrap"
+                      className="absolute inset-0 top-[28px] py-2 px-3 text-sm font-mono text-transparent caret-white outline-none whitespace-pre-wrap"
                       onKeyDown={(e) => handleKeyDown(e, idx)}
                       onInput={() => handleInput(idx)}
-                      onBlur={() => handleInput(idx)}
-                    >
-                      {block.content}
-                    </div>
+                      onBlur={(e) => handleBlur(idx, e)}
+                      onFocus={() => setActiveIdx(idx)}
+                    />
                   </div>
                 ) : (
-                  <div
-                    ref={(el) => { blockRefs.current[idx] = el; }}
-                    contentEditable
-                    suppressContentEditableWarning
-                    data-placeholder={PLACEHOLDERS[block.type]}
-                    className={['flex-1', blockClass(block.type)].join(' ')}
-                    style={block.type === 'heading' && props.level === 2 ? { fontSize: '1.5rem' } : undefined}
-                    onKeyDown={(e) => handleKeyDown(e, idx)}
-                    onInput={() => handleInput(idx)}
-                    onBlur={() => handleInput(idx)}
-                  >
-                    {block.content}
+                  <div className="flex-1">
+                    {isActive ? (
+                      <div
+                        ref={(el) => { blockRefs.current[idx] = el; }}
+                        contentEditable
+                        suppressContentEditableWarning
+                        data-placeholder={PLACEHOLDERS[block.type]}
+                        className={blockClass(block.type)}
+                        style={block.type === 'heading' && props.level === 2 ? { fontSize: '1.5rem' } : undefined}
+                        onKeyDown={(e) => handleKeyDown(e, idx)}
+                        onInput={() => handleInput(idx)}
+                        onBlur={(e) => handleBlur(idx, e)}
+                        onFocus={() => setActiveIdx(idx)}
+                      />
+                    ) : (
+                      <div
+                        ref={(el) => { blockRefs.current[idx] = el; }}
+                        data-placeholder={PLACEHOLDERS[block.type]}
+                        className={[blockClass(block.type), 'cursor-text'].join(' ')}
+                        style={block.type === 'heading' && props.level === 2 ? { fontSize: '1.5rem' } : undefined}
+                        onClick={() => activateBlock(idx)}
+                      >
+                        {renderSearchContent(block.content, searchCounter)}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

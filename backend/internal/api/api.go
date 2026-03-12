@@ -36,12 +36,16 @@ func listPages(c *gin.Context) {
 	for rows.Next() {
 		var p models.Page
 		var parentID sql.NullString
-		err := rows.Scan(&p.ID, &parentID, &p.Title, &p.Icon, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt)
+		var icon sql.NullString
+		err := rows.Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt)
 		if err != nil {
 			continue
 		}
 		if parentID.Valid {
 			p.ParentID = &parentID.String
+		}
+		if icon.Valid {
+			p.Icon = &icon.String
 		}
 		pages = append(pages, p)
 	}
@@ -61,7 +65,7 @@ func createPage(c *gin.Context) {
 	id := generateID("page")
 	now := time.Now().UnixMilli()
 	_, err := db.DB.Exec(
-		"INSERT INTO pages (id, workspace_id, parent_id, title, sort_order, created_at, updated_at) VALUES (?, 'default', ?, ?, 0, ?, ?)",
+		"INSERT INTO pages (id, workspace_id, parent_id, title, icon, sort_order, created_at, updated_at) VALUES (?, 'default', ?, ?, '', 0, ?, ?)",
 		id, req.ParentID, req.Title, now, now)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -78,14 +82,22 @@ func getPage(c *gin.Context) {
 	id := c.Param("id")
 	var p models.Page
 	var parentID sql.NullString
+	var icon sql.NullString
 	err := db.DB.QueryRow("SELECT id, parent_id, title, icon, sort_order, created_at, updated_at FROM pages WHERE id = ?", id).
-		Scan(&p.ID, &parentID, &p.Title, &p.Icon, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt)
+		Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	if parentID.Valid {
 		p.ParentID = &parentID.String
+	}
+	if icon.Valid {
+		p.Icon = &icon.String
 	}
 	c.JSON(http.StatusOK, p)
 }
@@ -129,7 +141,7 @@ func getBlocks(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var blocks []models.Block
+	blocks := make([]models.Block, 0)
 	for rows.Next() {
 		var b models.Block
 		var parentID sql.NullString
@@ -228,7 +240,7 @@ func search(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var results []models.SearchResult
+	results := make([]models.SearchResult, 0)
 	for rows.Next() {
 		var r models.SearchResult
 		var highlights string

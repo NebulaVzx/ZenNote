@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS pages (
 	workspace_id TEXT NOT NULL,
 	parent_id TEXT,
 	title TEXT,
-	icon TEXT,
+	icon TEXT DEFAULT '',
 	sort_order INTEGER DEFAULT 0,
 	created_at INTEGER,
 	updated_at INTEGER,

@@ -5,7 +5,7 @@ type Page struct {
 	ID        string  `json:"id"`
 	ParentID  *string `json:"parent_id"`
 	Title     string  `json:"title"`
-	Icon      string  `json:"icon"`
+	Icon      *string `json:"icon"`
 	SortOrder int     `json:"sort_order"`
 	CreatedAt int64   `json:"created_at"`
 	UpdatedAt int64   `json:"updated_at"`
