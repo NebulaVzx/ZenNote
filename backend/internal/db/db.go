@@ -77,6 +77,37 @@ CREATE VIRTUAL TABLE IF NOT EXISTS blocks_fts USING fts5(
 	content='blocks',
 	content_rowid='rowid'
 );
+
+	CREATE TABLE IF NOT EXISTS sync_configs (
+		id TEXT PRIMARY KEY,
+		workspace_id TEXT NOT NULL,
+		provider TEXT NOT NULL DEFAULT 's3',
+		endpoint TEXT,
+		region TEXT,
+		bucket TEXT NOT NULL,
+		prefix TEXT DEFAULT '',
+		access_key_id TEXT NOT NULL,
+		secret_access_key TEXT NOT NULL,
+		auto_sync INTEGER DEFAULT 1,
+		sync_interval INTEGER DEFAULT 300,
+		last_sync_at INTEGER,
+		created_at INTEGER,
+		updated_at INTEGER,
+		FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
+	);
+
+	CREATE TABLE IF NOT EXISTS sync_metadata (
+		id TEXT PRIMARY KEY,
+		workspace_id TEXT NOT NULL,
+		file_name TEXT NOT NULL,
+		remote_etag TEXT,
+		remote_modified_at INTEGER,
+		local_modified_at INTEGER,
+		last_sync_at INTEGER,
+		created_at INTEGER,
+		updated_at INTEGER,
+		FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
+	);
 `
 	_, err := DB.Exec(schema)
 	return err

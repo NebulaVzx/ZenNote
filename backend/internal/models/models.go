@@ -41,3 +41,34 @@ type SearchResult struct {
 	Content    string `json:"content"`
 	Highlights string `json:"highlights"`
 }
+
+// SyncConfig represents cloud sync configuration for a workspace
+type SyncConfig struct {
+	ID              string `json:"id"`
+	WorkspaceID     string `json:"workspace_id"`
+	Provider        string `json:"provider"`
+	Endpoint        string `json:"endpoint"`
+	Region          string `json:"region"`
+	Bucket          string `json:"bucket"`
+	Prefix          string `json:"prefix"`
+	AccessKeyID     string `json:"access_key_id"`
+	SecretAccessKey string `json:"secret_access_key"`
+	AutoSync        int    `json:"auto_sync"`
+	SyncInterval    int    `json:"sync_interval"`
+	LastSyncAt      int64  `json:"last_sync_at"`
+	CreatedAt       int64  `json:"created_at"`
+	UpdatedAt       int64  `json:"updated_at"`
+}
+
+// SyncMetadata tracks the sync state of individual files
+type SyncMetadata struct {
+	ID               string `json:"id"`
+	WorkspaceID      string `json:"workspace_id"`
+	FileName         string `json:"file_name"`
+	RemoteETag       string `json:"remote_etag"`
+	RemoteModifiedAt int64  `json:"remote_modified_at"`
+	LocalModifiedAt  int64  `json:"local_modified_at"`
+	LastSyncAt       int64  `json:"last_sync_at"`
+	CreatedAt        int64  `json:"created_at"`
+	UpdatedAt        int64  `json:"updated_at"`
+}
