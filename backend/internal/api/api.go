@@ -20,6 +20,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/pages/:id/blocks", getBlocks)
 	r.PUT("/api/pages/:id/blocks", updateBlocks)
 	r.GET("/api/search", search)
+	registerSyncRoutes(r)
 }
 
 func listPages(c *gin.Context) {
