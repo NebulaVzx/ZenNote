@@ -11,6 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// WorkspacePath holds the active workspace directory path
+var WorkspacePath string
+
 func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/pages", listPages)
 	r.POST("/api/pages", createPage)

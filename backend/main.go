@@ -48,6 +48,7 @@ func main() {
 		c.Next()
 	})
 
+	api.WorkspacePath = workspace
 	api.RegisterRoutes(r)
 
 	fmt.Println("ZenNote backend listening on http://localhost:8080")
