@@ -16,6 +16,7 @@ func registerSyncRoutes(r *gin.Engine) {
 	r.PUT("/api/sync/config", updateSyncConfig)
 	r.POST("/api/sync/config/test", testSyncConnection)
 	r.POST("/api/sync/upload", triggerUpload)
+	r.POST("/api/sync/download", triggerDownload)
 }
 
 func getSyncConfig(c *gin.Context) {
@@ -131,6 +132,15 @@ func testSyncConnection(c *gin.Context) {
 func triggerUpload(c *gin.Context) {
 	syncer := sync.NewSyncer("default", WorkspacePath)
 	if err := syncer.Upload(c.Request.Context()); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func triggerDownload(c *gin.Context) {
+	syncer := sync.NewSyncer("default", WorkspacePath)
+	if err := syncer.Download(c.Request.Context()); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
