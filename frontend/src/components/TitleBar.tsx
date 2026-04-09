@@ -1,7 +1,11 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Minus, Square, X } from 'lucide-react';
+import { Minus, Square, X, Settings } from 'lucide-react';
 
-export function TitleBar() {
+interface TitleBarProps {
+  onSettings?: () => void;
+}
+
+export function TitleBar({ onSettings }: TitleBarProps) {
   let appWindow: ReturnType<typeof getCurrentWindow> | undefined;
   try {
     appWindow = getCurrentWindow();
@@ -20,6 +24,15 @@ export function TitleBar() {
         <span className="text-xs text-gray-400">My Workspace</span>
       </div>
       <div className="flex items-center h-full">
+        {onSettings && (
+          <button
+            onClick={onSettings}
+            className="h-full px-3 flex items-center justify-center hover:bg-[#2a2a2a] text-gray-400 hover:text-gray-200 transition-colors"
+            title="Settings"
+          >
+            <Settings size={16} />
+          </button>
+        )}
         <button
           onClick={() => appWindow?.minimize()}
           className="h-full px-4 flex items-center justify-center hover:bg-[#2a2a2a] text-gray-400 hover:text-gray-200 transition-colors"

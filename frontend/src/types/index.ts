@@ -42,3 +42,20 @@ export interface SearchResult {
   content: string;
   highlights: string;
 }
+
+export interface SyncConfig {
+  id: string;
+  workspace_id: string;
+  provider: string;
+  endpoint: string;
+  region: string;
+  bucket: string;
+  prefix: string;
+  access_key_id: string;
+  secret_access_key: string;
+  auto_sync: number;
+  sync_interval: number;
+  last_sync_at: number;
+  created_at: number;
+  updated_at: number;
+}

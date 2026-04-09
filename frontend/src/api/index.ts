@@ -1,4 +1,4 @@
-import type { Page, Block, SearchResult } from '../types';
+import type { Page, Block, SearchResult, SyncConfig } from '../types';
 
 const BASE = 'http://localhost:8080';
 
@@ -36,4 +36,17 @@ export const api = {
       body: JSON.stringify(blocks),
     }),
   search: (q: string) => fetchJSON<SearchResult[]>(`/api/search?q=${encodeURIComponent(q)}`),
+  getSyncConfig: () => fetchJSON<{ config: SyncConfig | null }>('/api/sync/config'),
+  updateSyncConfig: (cfg: Partial<SyncConfig>) =>
+    fetchJSON<{ ok: boolean }>('/api/sync/config', {
+      method: 'PUT',
+      body: JSON.stringify(cfg),
+    }),
+  testSyncConnection: (cfg: Partial<SyncConfig>) =>
+    fetchJSON<{ ok: boolean }>('/api/sync/config/test', {
+      method: 'POST',
+      body: JSON.stringify(cfg),
+    }),
+  triggerUpload: () => fetchJSON<{ ok: boolean }>('/api/sync/upload', { method: 'POST' }),
+  triggerDownload: () => fetchJSON<{ ok: boolean }>('/api/sync/download', { method: 'POST' }),
 };

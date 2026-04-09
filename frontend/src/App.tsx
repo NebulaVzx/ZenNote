@@ -5,6 +5,7 @@ import { Tabs } from './components/Tabs';
 import { Editor } from './components/Editor';
 import { SearchModal } from './components/SearchModal';
 import { PageSearch } from './components/PageSearch';
+import { SettingsModal } from './components/SettingsModal';
 import { api } from './api';
 import type { Page, Tab } from './types';
 
@@ -17,6 +18,7 @@ function App() {
   const [pageSearchQuery, setPageSearchQuery] = useState('');
   const [pageSearchTotal, setPageSearchTotal] = useState(0);
   const [pageSearchCurrentIndex, setPageSearchCurrentIndex] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const pageMap = useRef<Record<string, Page>>({});
 
   // Load pages
@@ -148,7 +150,7 @@ function App() {
 
   return (
     <div className="flex flex-col h-full w-full bg-[#191919]">
-      <TitleBar />
+      <TitleBar onSettings={() => setSettingsOpen(true)} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           pages={pages}
@@ -195,6 +197,7 @@ function App() {
         </div>
       </div>
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onSelect={(id) => openPage(id)} />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }
