@@ -1,5 +1,6 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, Square, X, Settings } from 'lucide-react';
+import { SyncStatus } from './SyncStatus';
 
 interface TitleBarProps {
   onSettings?: () => void;
@@ -24,6 +25,7 @@ export function TitleBar({ onSettings }: TitleBarProps) {
         <span className="text-xs text-gray-400">My Workspace</span>
       </div>
       <div className="flex items-center h-full">
+        <SyncStatus />
         {onSettings && (
           <button
             onClick={onSettings}
