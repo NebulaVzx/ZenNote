@@ -45,7 +45,7 @@ export function Editor({
 }: EditorProps) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const blockRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const blockRefs = useRef<(HTMLElement | null)[]>([]);
   const saveTimer = useRef<number | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
@@ -93,7 +93,12 @@ export function Editor({
     });
   }, []);
 
-  const getBlockText = (idx: number) => blockRefs.current[idx]?.innerText || '';
+  const getBlockText = (idx: number) => {
+  const el = blockRefs.current[idx];
+  if (!el) return '';
+  if (el.tagName === 'TEXTAREA') return (el as HTMLTextAreaElement).value;
+  return el.innerText || '';
+};
 
   const flushBlock = useCallback((idx: number) => {
     const text = getBlockText(idx);
@@ -111,7 +116,8 @@ export function Editor({
       const next = [...prev];
       let changed = false;
       next.forEach((b, i) => {
-        const text = blockRefs.current[i]?.innerText || '';
+        const el = blockRefs.current[i];
+        const text = el && el.tagName === 'TEXTAREA' ? (el as HTMLTextAreaElement).value : el?.innerText || '';
         if (b.content !== text) {
           next[i] = { ...b, content: text, updated_at: Date.now() };
           changed = true;
@@ -198,6 +204,49 @@ export function Editor({
       el?.focus();
       placeCaretAtEnd(el);
     }, 0);
+  };
+
+  const handleCodeKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, idx: number) => {
+    const block = blocks[idx];
+    const target = e.currentTarget;
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const cursor = target.selectionStart;
+      const text = block.content;
+      const beforeText = text.slice(0, cursor);
+      const lineStart = beforeText.lastIndexOf('\n') + 1;
+      const lineBefore = beforeText.slice(lineStart);
+      const afterLineBreak = text.slice(cursor).indexOf('\n');
+      const lineAfterRaw = afterLineBreak === -1 ? text.slice(cursor) : text.slice(cursor, cursor + afterLineBreak);
+      const isAtStart = cursor === 0;
+      const isEmptyLine = lineBefore.trim() === '' && lineAfterRaw.trim() === '';
+      const isLastLine = !text.slice(cursor).includes('\n');
+
+      if (isAtStart) {
+        e.preventDefault();
+        insertBlockBefore(idx, 'paragraph');
+      } else if (isEmptyLine && isLastLine) {
+        e.preventDefault();
+        const newContent = text.slice(0, cursor - 1) + text.slice(cursor);
+        updateBlock(idx, { content: newContent });
+        insertBlock(idx, 'paragraph');
+      }
+      // else allow default newline
+    }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      const value = block.content;
+      const newValue = value.substring(0, start) + '  ' + value.substring(end);
+      updateBlock(idx, { content: newValue });
+      setTimeout(() => {
+        target.selectionStart = target.selectionEnd = start + 2;
+      }, 0);
+    }
+    if (e.key === 'Backspace' && block.content === '') {
+      e.preventDefault();
+      removeBlock(idx);
+    }
   };
 
   const removeBlock = (idx: number) => {
@@ -325,24 +374,12 @@ export function Editor({
       if (slashOpen) return;
       const sel = window.getSelection();
       const offset = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).startOffset : 0;
-      if (blocks[idx].type === 'code') {
-        if (offset === 0) {
-          flushBlock(idx);
-          insertBlockBefore(idx, 'paragraph');
-        } else if (offset >= text.length) {
-          flushBlock(idx);
-          insertBlock(idx, 'paragraph');
-        } else {
-          document.execCommand('insertText', false, '\n');
-        }
+      if (offset === 0 && text.trim() !== '') {
+        flushBlock(idx);
+        insertBlockBefore(idx, 'paragraph');
       } else {
-        if (offset === 0 && text.trim() !== '') {
-          flushBlock(idx);
-          insertBlockBefore(idx, 'paragraph');
-        } else {
-          flushBlock(idx);
-          insertBlock(idx);
-        }
+        flushBlock(idx);
+        insertBlock(idx);
       }
       return;
     }
@@ -488,9 +525,14 @@ export function Editor({
     setActiveIdx(idx);
     setTimeout(() => {
       const el = blockRefs.current[idx];
-      if (el) {
+      if (!el) return;
+      if (el.tagName === 'TEXTAREA') {
         el.focus();
-        placeCaretAtEnd(el);
+        const ta = el as HTMLTextAreaElement;
+        ta.selectionStart = ta.selectionEnd = ta.value.length;
+      } else {
+        el.focus();
+        placeCaretAtEnd(el as HTMLDivElement);
       }
     }, 0);
   };
@@ -523,12 +565,19 @@ export function Editor({
     blocks.forEach((b, i) => {
       const el = blockRefs.current[i];
       if (!el) return;
-      if (activeIdx === i) {
-        if (el.innerText === '' && b.content) {
-          el.innerText = b.content;
+      if (el.tagName === 'TEXTAREA') {
+        const ta = el as HTMLTextAreaElement;
+        if (ta.value !== b.content) {
+          ta.value = b.content;
         }
       } else {
-        el.innerText = b.content;
+        if (activeIdx === i) {
+          if (el.innerText === '' && b.content) {
+            el.innerText = b.content;
+          }
+        } else {
+          el.innerText = b.content;
+        }
       }
     });
   }, [blocks, loaded, activeIdx]);
@@ -647,26 +696,26 @@ export function Editor({
               setActiveIdx(newActive);
             };
 
-            return (
+            const blockNode = (
               <div
                 key={block.id}
                 data-block-idx={idx}
-                draggable
-                onDragStart={(e) => handleBlockDragStart(e, idx)}
-                onDragOver={handleBlockDragOver}
-                onDrop={(e) => handleBlockDrop(e, idx)}
-                className="flex items-start gap-2 group cursor-move"
+                className="flex items-start gap-2 group"
               >
-                <div className="mt-1.5 w-5 text-center text-gray-500 select-none shrink-0 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing">
+                <div
+                  className="mt-1.5 w-5 text-center text-gray-500 select-none shrink-0 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
+                  draggable
+                  onDragStart={(e) => handleBlockDragStart(e, idx)}
+                >
                   ⋮⋮
                 </div>
                 {leftIcon}
                 {block.type === 'divider' ? (
-                  <div className="flex-1 py-3">
+                  <div className="flex-1 py-3" onDragOver={handleBlockDragOver} onDrop={(e) => handleBlockDrop(e, idx)}>
                     <hr className="border-[#2f2f2f]" />
                   </div>
                 ) : block.type === 'code' ? (
-                  <div className="flex-1 relative group min-w-0">
+                  <div className="flex-1 relative group min-w-0" onDragOver={handleBlockDragOver} onDrop={(e) => handleBlockDrop(e, idx)}>
                     <div className="flex items-center justify-between px-2 py-1 h-7 bg-[#1a1a1a] rounded-t border-x border-t border-[#2f2f2f]">
                       <span className="text-xs text-gray-500 font-medium">Code block</span>
                       <select
@@ -679,27 +728,32 @@ export function Editor({
                         ))}
                       </select>
                     </div>
-                    <pre className="py-2 px-3 text-sm font-mono bg-[#151515] text-gray-300 rounded-b border-x border-b border-[#2f2f2f] whitespace-pre-wrap overflow-x-auto max-h-[500px] min-w-0">
-                      <code
-                        className={`language-${props.language || 'text'}`}
-                        dangerouslySetInnerHTML={{
-                          __html: hljs.highlight(block.content || '', { language: props.language || 'text' }).value,
+                    <div className="relative rounded-b border-x border-b border-[#2f2f2f] overflow-hidden">
+                      <pre className="py-2 px-3 text-sm font-mono bg-[#151515] text-gray-300 whitespace-pre-wrap overflow-x-auto max-h-[500px] min-w-0 pointer-events-none">
+                        <code
+                          className={`language-${props.language || 'text'}`}
+                          dangerouslySetInnerHTML={{
+                            __html: hljs.highlight(block.content || ' ', { language: props.language || 'text' }).value,
+                          }}
+                        />
+                      </pre>
+                      <textarea
+                        ref={(el) => { blockRefs.current[idx] = el; }}
+                        value={block.content}
+                        onChange={(e) => {
+                          onEditorInput();
+                          updateBlock(idx, { content: e.target.value });
                         }}
+                        onKeyDown={(e) => handleCodeKeyDown(e, idx)}
+                        onBlur={() => { flushBlock(idx); setActiveIdx(null); }}
+                        onFocus={() => setActiveIdx(idx)}
+                        spellCheck={false}
+                        className="absolute inset-0 py-2 px-3 text-sm font-mono bg-transparent text-transparent caret-white outline-none whitespace-pre-wrap resize-none overflow-x-auto max-h-[500px] min-w-0"
                       />
-                    </pre>
-                    <div
-                      ref={(el) => { blockRefs.current[idx] = el; }}
-                      contentEditable
-                      suppressContentEditableWarning
-                      className="absolute inset-0 top-[28px] py-2 px-3 text-sm font-mono text-transparent caret-white outline-none whitespace-pre-wrap"
-                      onKeyDown={(e) => handleKeyDown(e, idx)}
-                      onInput={() => handleInput(idx)}
-                      onBlur={(e) => handleBlur(idx, e)}
-                      onFocus={() => setActiveIdx(idx)}
-                    />
+                    </div>
                   </div>
                 ) : (
-                  <div className="flex-1">
+                  <div className="flex-1" onDragOver={handleBlockDragOver} onDrop={(e) => handleBlockDrop(e, idx)}>
                     {isActive ? (
                       <div
                         ref={(el) => { blockRefs.current[idx] = el; }}
@@ -728,6 +782,16 @@ export function Editor({
                 )}
               </div>
             );
+            const clickToAdd = (block.type === 'code' || block.type === 'divider') ? (
+              <div
+                key={`add-${block.id}`}
+                className="h-5 -mt-1 mb-1 ml-7 cursor-text hover:bg-[#252525]/60 rounded flex items-center justify-center text-gray-600 text-[10px] opacity-0 hover:opacity-100 transition-opacity"
+                onClick={() => insertBlock(idx, 'paragraph')}
+              >
+                Click to add text
+              </div>
+            ) : null;
+            return clickToAdd ? [blockNode, clickToAdd] : blockNode;
           })}
         </div>
         <div className="h-32" />
@@ -736,13 +800,15 @@ export function Editor({
   );
 }
 
-function placeCaretAtEnd(el: HTMLDivElement | null) {
+function placeCaretAtEnd(el: HTMLElement | null) {
   if (!el) return;
   const range = document.createRange();
   if (!el.childNodes.length) {
+    const zwsp = document.createTextNode('\u200B');
     const br = document.createElement('br');
+    el.appendChild(zwsp);
     el.appendChild(br);
-    range.setStartBefore(br);
+    range.setStartAfter(zwsp);
     range.collapse(true);
   } else {
     range.selectNodeContents(el);
