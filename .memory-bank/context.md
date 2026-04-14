@@ -12,9 +12,13 @@
 ---
 
 ## 最近一次提交
+- **Commit**: `dc146c8`
+- **Message**: `docs: update README.md to reflect Phase 1/2 completion and current project state`
+- **推送状态**: 已推送到 GitHub `origin/main`
+
+### 上一个功能提交
 - **Commit**: `087e72b`
 - **Message**: `fix(editor+sidebar): restore slash shortcuts and fix drag-and-drop`
-- **推送状态**: 已推送到 GitHub `origin/main`
 
 ### 该提交修复的内容
 1. **恢复斜杠命令和 Markdown 快捷语法** (`/`, `[] `, `# ` 等)
