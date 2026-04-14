@@ -23,6 +23,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/pages/:id/blocks", getBlocks)
 	r.PUT("/api/pages/:id/blocks", updateBlocks)
 	r.GET("/api/search", search)
+	r.GET("/api/health", healthCheck)
 	registerSyncRoutes(r)
 }
 
@@ -256,6 +257,10 @@ func search(c *gin.Context) {
 		results = append(results, r)
 	}
 	c.JSON(http.StatusOK, results)
+}
+
+func healthCheck(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.2.0"})
 }
 
 func generateID(prefix string) string {
