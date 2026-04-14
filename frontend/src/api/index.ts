@@ -1,5 +1,6 @@
 import type { Page, Block, SearchResult, SyncConfig } from '../types';
 
+
 const BASE = 'http://localhost:8080';
 
 async function fetchJSON<T>(input: string, init?: RequestInit): Promise<T> {
@@ -26,6 +27,11 @@ export const api = {
     fetchJSON<{ ok: boolean }>(`/api/pages/${id}`, {
       method: 'PUT',
       body: JSON.stringify({ title }),
+    }),
+  reorderPages: (pages: Page[]) =>
+    fetchJSON<{ ok: boolean }>('/api/pages/reorder', {
+      method: 'PUT',
+      body: JSON.stringify(pages),
     }),
   deletePage: (id: string) =>
     fetchJSON<{ ok: boolean }>(`/api/pages/${id}`, { method: 'DELETE' }),

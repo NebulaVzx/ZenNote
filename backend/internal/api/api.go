@@ -19,6 +19,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/api/pages", createPage)
 	r.GET("/api/pages/:id", getPage)
 	r.PUT("/api/pages/:id", updatePage)
+	r.PUT("/api/pages/reorder", reorderPages)
 	r.DELETE("/api/pages/:id", deletePage)
 	r.GET("/api/pages/:id/blocks", getBlocks)
 	r.PUT("/api/pages/:id/blocks", updateBlocks)
@@ -119,6 +120,44 @@ func updatePage(c *gin.Context) {
 	now := time.Now().UnixMilli()
 	_, err := db.DB.Exec("UPDATE pages SET title = ?, updated_at = ? WHERE id = ?", req.Title, now, id)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func reorderPages(c *gin.Context) {
+	var items []models.Page
+	if err := c.BindJSON(&items); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	tx, err := db.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer tx.Rollback()
+	stmt, err := tx.Prepare("UPDATE pages SET parent_id = ?, sort_order = ? WHERE id = ?")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer stmt.Close()
+	for _, p := range items {
+		var parentID interface{}
+		if p.ParentID != nil {
+			parentID = *p.ParentID
+		} else {
+			parentID = nil
+		}
+		_, err := stmt.Exec(parentID, p.SortOrder, p.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

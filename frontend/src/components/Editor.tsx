@@ -182,6 +182,24 @@ export function Editor({
     }, 0);
   };
 
+  const insertBlockBefore = (beforeIdx: number, type: BlockType = 'paragraph') => {
+    flushBlock(beforeIdx);
+    setBlocks((prev) => {
+      const next = [...prev];
+      const nb = { ...createEmptyBlock(), type };
+      next.splice(beforeIdx, 0, nb);
+      return next.map((b, i) => ({ ...b, sort_order: i }));
+    });
+    setSlashOpen(false);
+    setToolbarVisible(false);
+    setActiveIdx(beforeIdx);
+    setTimeout(() => {
+      const el = blockRefs.current[beforeIdx];
+      el?.focus();
+      placeCaretAtEnd(el);
+    }, 0);
+  };
+
   const removeBlock = (idx: number) => {
     setBlocks((prev) => {
       if (prev.length <= 1) {
@@ -305,11 +323,26 @@ export function Editor({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (slashOpen) return;
+      const sel = window.getSelection();
+      const offset = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).startOffset : 0;
       if (blocks[idx].type === 'code') {
-        document.execCommand('insertText', false, '\n');
+        if (offset === 0) {
+          flushBlock(idx);
+          insertBlockBefore(idx, 'paragraph');
+        } else if (offset >= text.length) {
+          flushBlock(idx);
+          insertBlock(idx, 'paragraph');
+        } else {
+          document.execCommand('insertText', false, '\n');
+        }
       } else {
-        flushBlock(idx);
-        insertBlock(idx);
+        if (offset === 0 && text.trim() !== '') {
+          flushBlock(idx);
+          insertBlockBefore(idx, 'paragraph');
+        } else {
+          flushBlock(idx);
+          insertBlock(idx);
+        }
       }
       return;
     }
@@ -590,8 +623,43 @@ export function Editor({
               );
             }
 
+            const handleBlockDragStart = (e: React.DragEvent, index: number) => {
+              e.dataTransfer.setData('text/plain', String(index));
+              e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleBlockDragOver = (e: React.DragEvent) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+            };
+
+            const handleBlockDrop = (e: React.DragEvent, targetIdx: number) => {
+              e.preventDefault();
+              const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+              if (isNaN(fromIdx) || fromIdx === targetIdx) return;
+              setBlocks((prev) => {
+                const next = [...prev];
+                const [moved] = next.splice(fromIdx, 1);
+                next.splice(targetIdx, 0, moved);
+                return next.map((b, i) => ({ ...b, sort_order: i }));
+              });
+              const newActive = activeIdx === fromIdx ? targetIdx : activeIdx;
+              setActiveIdx(newActive);
+            };
+
             return (
-              <div key={block.id} data-block-idx={idx} className="flex items-start gap-2 group">
+              <div
+                key={block.id}
+                data-block-idx={idx}
+                draggable
+                onDragStart={(e) => handleBlockDragStart(e, idx)}
+                onDragOver={handleBlockDragOver}
+                onDrop={(e) => handleBlockDrop(e, idx)}
+                className="flex items-start gap-2 group cursor-move"
+              >
+                <div className="mt-1.5 w-5 text-center text-gray-500 select-none shrink-0 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing">
+                  ⋮⋮
+                </div>
                 {leftIcon}
                 {block.type === 'divider' ? (
                   <div className="flex-1 py-3">
@@ -599,7 +667,7 @@ export function Editor({
                   </div>
                 ) : block.type === 'code' ? (
                   <div className="flex-1 relative group min-w-0">
-                    <div className="flex items-center justify-between px-2 py-1 bg-[#1a1a1a] rounded-t border-x border-t border-[#2f2f2f]">
+                    <div className="flex items-center justify-between px-2 py-1 h-7 bg-[#1a1a1a] rounded-t border-x border-t border-[#2f2f2f]">
                       <span className="text-xs text-gray-500 font-medium">Code block</span>
                       <select
                         value={props.language || 'text'}
@@ -671,8 +739,15 @@ export function Editor({
 function placeCaretAtEnd(el: HTMLDivElement | null) {
   if (!el) return;
   const range = document.createRange();
-  range.selectNodeContents(el);
-  range.collapse(false);
+  if (!el.childNodes.length) {
+    const br = document.createElement('br');
+    el.appendChild(br);
+    range.setStartBefore(br);
+    range.collapse(true);
+  } else {
+    range.selectNodeContents(el);
+    range.collapse(false);
+  }
   const sel = window.getSelection();
   if (sel) {
     sel.removeAllRanges();

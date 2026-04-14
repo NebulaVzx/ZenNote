@@ -129,7 +129,11 @@ function App() {
     const map: Record<string, Page> = {};
     updated.forEach((p) => (map[p.id] = p));
     pageMap.current = map;
-    void updated;
+    try {
+      await api.reorderPages(updated);
+    } catch (e) {
+      console.error('reorder failed', e);
+    }
   };
 
   const handlePageSearchClose = () => {

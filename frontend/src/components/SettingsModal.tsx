@@ -142,7 +142,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
             />
           </div>
-          <div className="flex items-center gap-3">
+          <div>
             <label className="flex items-center gap-2 text-sm text-gray-300">
               <input
                 type="checkbox"
@@ -152,16 +152,16 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               />
               Auto sync
             </label>
-            <div className="flex-1">
-              <label className="block text-xs text-gray-400 mb-1">Interval (seconds)</label>
-              <input
-                type="number"
-                min={60}
-                value={config.sync_interval || 300}
-                onChange={(e) => update('sync_interval', parseInt(e.target.value, 10) || 300)}
-                className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
-              />
-            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Interval (seconds)</label>
+            <input
+              type="number"
+              min={60}
+              value={config.sync_interval || 300}
+              onChange={(e) => update('sync_interval', parseInt(e.target.value, 10) || 300)}
+              className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+            />
           </div>
         </div>
 
@@ -180,7 +180,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           <button
             onClick={handleTest}
             disabled={loading}
-            className="px-3 py-2 text-sm rounded bg-[#2a2a2a] text-gray-200 hover:bg-[#333] disabled:opacity-50"
+            className="px-4 py-2 text-sm rounded bg-[#2a2a2a] text-gray-200 hover:bg-[#333] disabled:opacity-50"
           >
             Test Connection
           </button>
