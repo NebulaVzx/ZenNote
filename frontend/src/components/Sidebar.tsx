@@ -41,11 +41,11 @@ function PageTreeItem({
   onDeletePage: (pageId: string) => void;
   draggedId: string | null;
   dragOverId: string | null;
-  onDragStart: (pageId: string) => void;
+  onDragStart: (e: React.DragEvent, pageId: string) => void;
   onDragEnd: () => void;
-  onDragOver: (pageId: string) => void;
+  onDragOver: (e: React.DragEvent, pageId: string) => void;
   onDragLeave: (pageId: string) => void;
-  onDrop: (pageId: string) => void;
+  onDrop: (e: React.DragEvent, pageId: string) => void;
   selectionMode: boolean;
   selectedIds: Set<string>;
   onToggleSelect: (pageId: string) => void;
@@ -68,9 +68,9 @@ function PageTreeItem({
         ].join(' ')}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={() => onSelectPage(page)}
-        onDragOver={(e) => { e.preventDefault(); onDragOver(page.id); }}
+        onDragOver={(e) => { e.preventDefault(); onDragOver(e, page.id); }}
         onDragLeave={() => onDragLeave(page.id)}
-        onDrop={(e) => { e.preventDefault(); onDrop(page.id); }}
+        onDrop={(e) => { e.preventDefault(); onDrop(e, page.id); }}
       >
         {selectionMode ? (
           <input
@@ -83,7 +83,7 @@ function PageTreeItem({
         ) : (
           <div
             draggable
-            onDragStart={() => onDragStart(page.id)}
+            onDragStart={(e) => onDragStart(e, page.id)}
             onDragEnd={onDragEnd}
             onClick={(e) => e.stopPropagation()}
             className="p-0.5 text-gray-500 cursor-grab active:cursor-grabbing hover:bg-[#333] rounded"
@@ -176,9 +176,13 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
     setSelectionMode(false);
   };
 
-  const handleDragStart = (pageId: string) => setDraggedId(pageId);
+  const handleDragStart = (e: React.DragEvent, pageId: string) => {
+    e.dataTransfer.setData('text/plain', pageId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedId(pageId);
+  };
   const handleDragEnd = () => { setDraggedId(null); setDragOverId(null); };
-  const handleDragOver = (pageId: string) => { if (draggedId && draggedId !== pageId) setDragOverId(pageId); };
+  const handleDragOver = (e: React.DragEvent, pageId: string) => { e.preventDefault(); if (draggedId && draggedId !== pageId) setDragOverId(pageId); };
   const handleDragLeave = (pageId: string) => { if (dragOverId === pageId) setDragOverId(null); };
 
   const applyReorder = (draggedId: string, targetParentId?: string) => {
@@ -192,7 +196,8 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
     onReorderPages(updated);
   };
 
-  const handleDrop = (targetPageId: string) => {
+  const handleDrop = (e: React.DragEvent, targetPageId: string) => {
+    e.preventDefault();
     if (!draggedId || draggedId === targetPageId) {
       handleDragEnd();
       return;

@@ -428,7 +428,7 @@ export function Editor({
     }
   };
 
-  const normalizeText = (text: string) => text.replace(/\u00A0/g, ' ');
+  const normalizeText = (text: string) => text.replace(/\u00A0/g, ' ').replace(/\u200B/g, '').trim();
 
   const handleInput = (idx: number) => {
     onEditorInput();
@@ -701,9 +701,11 @@ export function Editor({
                 key={block.id}
                 data-block-idx={idx}
                 className="flex items-start gap-2 group"
+                onDragOver={handleBlockDragOver}
+                onDrop={(e) => handleBlockDrop(e, idx)}
               >
                 <div
-                  className="mt-1.5 w-5 text-center text-gray-500 select-none shrink-0 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
+                  className="mt-1.5 w-5 text-center text-gray-500 select-none shrink-0 cursor-grab active:cursor-grabbing"
                   draggable
                   onDragStart={(e) => handleBlockDragStart(e, idx)}
                 >
@@ -711,11 +713,11 @@ export function Editor({
                 </div>
                 {leftIcon}
                 {block.type === 'divider' ? (
-                  <div className="flex-1 py-3" onDragOver={handleBlockDragOver} onDrop={(e) => handleBlockDrop(e, idx)}>
+                  <div className="flex-1 py-3">
                     <hr className="border-[#2f2f2f]" />
                   </div>
                 ) : block.type === 'code' ? (
-                  <div className="flex-1 relative group min-w-0" onDragOver={handleBlockDragOver} onDrop={(e) => handleBlockDrop(e, idx)}>
+                  <div className="flex-1 relative group min-w-0">
                     <div className="flex items-center justify-between px-2 py-1 h-7 bg-[#1a1a1a] rounded-t border-x border-t border-[#2f2f2f]">
                       <span className="text-xs text-gray-500 font-medium">Code block</span>
                       <select
@@ -753,7 +755,7 @@ export function Editor({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-1" onDragOver={handleBlockDragOver} onDrop={(e) => handleBlockDrop(e, idx)}>
+                  <div className="flex-1">
                     {isActive ? (
                       <div
                         ref={(el) => { blockRefs.current[idx] = el; }}
@@ -804,11 +806,9 @@ function placeCaretAtEnd(el: HTMLElement | null) {
   if (!el) return;
   const range = document.createRange();
   if (!el.childNodes.length) {
-    const zwsp = document.createTextNode('\u200B');
     const br = document.createElement('br');
-    el.appendChild(zwsp);
     el.appendChild(br);
-    range.setStartAfter(zwsp);
+    range.setStartBefore(br);
     range.collapse(true);
   } else {
     range.selectNodeContents(el);
