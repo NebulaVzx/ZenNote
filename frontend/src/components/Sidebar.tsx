@@ -94,7 +94,7 @@ function PageTreeItem({
             onDragStart={(e) => onDragStart(e, page.id)}
             onDragEnd={onDragEnd}
             onClick={(e) => e.stopPropagation()}
-            className="p-1.5 text-gray-500 cursor-grab active:cursor-grabbing hover:bg-[#333] rounded"
+            className="p-1.5 text-gray-500 cursor-grab active:cursor-grabbing hover:bg-[#333] rounded select-none"
             title="Drag to move"
           >
             <GripVertical size={14} />

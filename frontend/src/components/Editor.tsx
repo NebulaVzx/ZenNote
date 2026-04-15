@@ -216,45 +216,33 @@ export function Editor({
 
   const handleCodeKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, idx: number) => {
     const target = e.currentTarget;
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
       const start = target.selectionStart;
       const end = target.selectionEnd;
       const text = target.value;
-      const beforeText = text.slice(0, start);
-      const lineStart = beforeText.lastIndexOf('\n') + 1;
-      const lineBefore = beforeText.slice(lineStart);
-      const afterLineBreak = text.slice(end).indexOf('\n');
-      const lineAfterRaw = afterLineBreak === -1 ? text.slice(end) : text.slice(end, end + afterLineBreak);
       const isAtStart = start === 0 && end === 0;
-      const isEmptyLine = lineBefore.trim() === '' && lineAfterRaw.trim() === '';
-      const isLastLine = !text.slice(end).includes('\n');
-
-      if (e.shiftKey) {
-        e.preventDefault();
-        const newValue = text.slice(0, start) + '\n' + text.slice(end);
-        updateBlock(idx, { content: newValue });
-        setTimeout(() => {
-          target.selectionStart = target.selectionEnd = start + 1;
-        }, 0);
-        return;
-      }
 
       if (isAtStart) {
         e.preventDefault();
         insertBlockBefore(idx, 'paragraph');
-      } else if (isEmptyLine && isLastLine) {
+        return;
+      }
+
+      const beforeText = text.slice(0, start);
+      const lineStart = beforeText.lastIndexOf('\n') + 1;
+      const currentLine = beforeText.slice(lineStart);
+      const isEmptyLine = currentLine.trim() === '';
+      const isLastLine = !text.slice(end).includes('\n');
+
+      if (isEmptyLine && isLastLine) {
         e.preventDefault();
         const newContent = text.slice(0, start - 1) + text.slice(end);
         updateBlock(idx, { content: newContent });
         insertBlock(idx, 'paragraph');
-      } else {
-        e.preventDefault();
-        const newValue = text.slice(0, start) + '\n' + text.slice(end);
-        updateBlock(idx, { content: newValue });
-        setTimeout(() => {
-          target.selectionStart = target.selectionEnd = start + 1;
-        }, 0);
+        return;
       }
+
+      // Let react-simple-code-editor / browser handle normal Enter (auto-indent + newline)
       return;
     }
     if (e.key === 'Tab') {
@@ -279,7 +267,7 @@ export function Editor({
         e.preventDefault();
         flushBlock(idx);
         setActiveIdx(idx - 1);
-        focusBlockEnd(blockRefs.current[idx - 1]);
+        setTimeout(() => focusBlockEnd(blockRefs.current[idx - 1]), 0);
       }
     }
     if (e.key === 'ArrowDown' && idx < blocks.length - 1) {
@@ -290,7 +278,7 @@ export function Editor({
         e.preventDefault();
         flushBlock(idx);
         setActiveIdx(idx + 1);
-        focusBlockStart(blockRefs.current[idx + 1]);
+        setTimeout(() => focusBlockStart(blockRefs.current[idx + 1]), 0);
       }
     }
   };
@@ -455,7 +443,7 @@ export function Editor({
         e.preventDefault();
         flushBlock(idx);
         setActiveIdx(idx - 1);
-        focusBlockEnd(blockRefs.current[idx - 1]);
+        setTimeout(() => focusBlockEnd(blockRefs.current[idx - 1]), 0);
       }
     }
     if (e.key === 'ArrowDown' && idx < blocks.length - 1 && el) {
@@ -463,7 +451,7 @@ export function Editor({
         e.preventDefault();
         flushBlock(idx);
         setActiveIdx(idx + 1);
-        focusBlockStart(blockRefs.current[idx + 1]);
+        setTimeout(() => focusBlockStart(blockRefs.current[idx + 1]), 0);
       }
     }
   };
@@ -814,7 +802,7 @@ export function Editor({
                         highlight={(code) => hljs.highlight(code || ' ', { language: props.language || 'text' }).value}
                         padding={12}
                         className="text-sm font-mono text-gray-300 whitespace-pre-wrap min-w-0"
-                        textareaClassName="bg-transparent text-transparent caret-white outline-none resize-none"
+                        textareaClassName="bg-transparent text-transparent caret-white outline-none resize-none text-sm font-mono whitespace-pre-wrap min-w-0"
                         preClassName="text-sm font-mono text-gray-300 whitespace-pre-wrap min-w-0"
                         onKeyDown={(e) => handleCodeKeyDown(e as React.KeyboardEvent<HTMLTextAreaElement>, idx)}
                         onBlur={() => { flushBlock(idx); setActiveIdx(null); }}
@@ -878,10 +866,18 @@ function isAtBlockStart(el: HTMLElement) {
   if (!sel || sel.rangeCount === 0) return false;
   const range = sel.getRangeAt(0);
   if (!range.collapsed) return false;
-  const pre = document.createRange();
-  pre.setStart(el, 0);
-  pre.setEnd(range.startContainer, range.startOffset);
-  return pre.toString().length === 0;
+
+  // Empty blocks are always at start
+  if (!el.textContent || el.textContent === '\n') return true;
+
+  try {
+    const pre = document.createRange();
+    pre.selectNodeContents(el);
+    pre.setEnd(range.endContainer, range.endOffset);
+    return pre.toString().length === 0;
+  } catch {
+    return range.startOffset === 0;
+  }
 }
 
 function isAtBlockEnd(el: HTMLElement) {
@@ -889,10 +885,18 @@ function isAtBlockEnd(el: HTMLElement) {
   if (!sel || sel.rangeCount === 0) return false;
   const range = sel.getRangeAt(0);
   if (!range.collapsed) return false;
-  const post = document.createRange();
-  post.setStart(range.endContainer, range.endOffset);
-  post.setEndAfter(el.lastChild || el);
-  return post.toString().length === 0;
+
+  // Empty blocks are always at end
+  if (!el.textContent || el.textContent === '\n') return true;
+
+  try {
+    const post = document.createRange();
+    post.selectNodeContents(el);
+    post.setStart(range.startContainer, range.startOffset);
+    return post.toString().length === 0;
+  } catch {
+    return false;
+  }
 }
 
 function placeCaretAtEnd(el: HTMLElement | null) {

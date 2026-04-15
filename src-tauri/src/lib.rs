@@ -5,6 +5,7 @@ fn greet(name: &str) -> String {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+// Force rebuild to invalidate stale cache and pick up new icons / dragDrop config
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
