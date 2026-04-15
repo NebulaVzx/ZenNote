@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { api } from '../api';
 import { SlashCommand, type SlashItem } from './SlashCommand';
+import SimpleEditor from 'react-simple-code-editor';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
 import type { Block, BlockType } from '../types';
@@ -48,6 +49,7 @@ export function Editor({
   const blockRefs = useRef<(HTMLElement | null)[]>([]);
   const saveTimer = useRef<number | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
   // Slash command state
@@ -84,6 +86,14 @@ export function Editor({
       setLoaded(true);
     });
   }, [pageId, createEmptyBlock]);
+
+  // Auto-focus title when opening a newly created page
+  useEffect(() => {
+    if (loaded && title.startsWith('New Page')) {
+      titleRef.current?.focus();
+      titleRef.current?.select();
+    }
+  }, [loaded, title]);
 
   const updateBlock = useCallback((idx: number, patch: Partial<Block>) => {
     setBlocks((prev) => {
@@ -183,8 +193,7 @@ export function Editor({
     setActiveIdx(afterIdx + 1);
     setTimeout(() => {
       const el = blockRefs.current[afterIdx + 1];
-      el?.focus();
-      placeCaretAtEnd(el);
+      focusBlockEnd(el);
     }, 0);
   };
 
@@ -201,51 +210,88 @@ export function Editor({
     setActiveIdx(beforeIdx);
     setTimeout(() => {
       const el = blockRefs.current[beforeIdx];
-      el?.focus();
-      placeCaretAtEnd(el);
+      focusBlockEnd(el);
     }, 0);
   };
 
   const handleCodeKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, idx: number) => {
-    const block = blocks[idx];
     const target = e.currentTarget;
-    if (e.key === 'Enter' && !e.shiftKey) {
-      const cursor = target.selectionStart;
-      const text = block.content;
-      const beforeText = text.slice(0, cursor);
+    if (e.key === 'Enter') {
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      const text = target.value;
+      const beforeText = text.slice(0, start);
       const lineStart = beforeText.lastIndexOf('\n') + 1;
       const lineBefore = beforeText.slice(lineStart);
-      const afterLineBreak = text.slice(cursor).indexOf('\n');
-      const lineAfterRaw = afterLineBreak === -1 ? text.slice(cursor) : text.slice(cursor, cursor + afterLineBreak);
-      const isAtStart = cursor === 0;
+      const afterLineBreak = text.slice(end).indexOf('\n');
+      const lineAfterRaw = afterLineBreak === -1 ? text.slice(end) : text.slice(end, end + afterLineBreak);
+      const isAtStart = start === 0 && end === 0;
       const isEmptyLine = lineBefore.trim() === '' && lineAfterRaw.trim() === '';
-      const isLastLine = !text.slice(cursor).includes('\n');
+      const isLastLine = !text.slice(end).includes('\n');
+
+      if (e.shiftKey) {
+        e.preventDefault();
+        const newValue = text.slice(0, start) + '\n' + text.slice(end);
+        updateBlock(idx, { content: newValue });
+        setTimeout(() => {
+          target.selectionStart = target.selectionEnd = start + 1;
+        }, 0);
+        return;
+      }
 
       if (isAtStart) {
         e.preventDefault();
         insertBlockBefore(idx, 'paragraph');
       } else if (isEmptyLine && isLastLine) {
         e.preventDefault();
-        const newContent = text.slice(0, cursor - 1) + text.slice(cursor);
+        const newContent = text.slice(0, start - 1) + text.slice(end);
         updateBlock(idx, { content: newContent });
         insertBlock(idx, 'paragraph');
+      } else {
+        e.preventDefault();
+        const newValue = text.slice(0, start) + '\n' + text.slice(end);
+        updateBlock(idx, { content: newValue });
+        setTimeout(() => {
+          target.selectionStart = target.selectionEnd = start + 1;
+        }, 0);
       }
-      // else allow default newline
+      return;
     }
     if (e.key === 'Tab') {
       e.preventDefault();
       const start = target.selectionStart;
       const end = target.selectionEnd;
-      const value = block.content;
+      const value = target.value;
       const newValue = value.substring(0, start) + '  ' + value.substring(end);
       updateBlock(idx, { content: newValue });
       setTimeout(() => {
         target.selectionStart = target.selectionEnd = start + 2;
       }, 0);
     }
-    if (e.key === 'Backspace' && block.content === '') {
+    if (e.key === 'Backspace' && target.value === '') {
       e.preventDefault();
       removeBlock(idx);
+    }
+    if (e.key === 'ArrowUp' && idx > 0) {
+      const before = target.value.slice(0, target.selectionStart);
+      const lineIndex = before.split('\n').length - 1;
+      if (lineIndex === 0) {
+        e.preventDefault();
+        flushBlock(idx);
+        setActiveIdx(idx - 1);
+        focusBlockEnd(blockRefs.current[idx - 1]);
+      }
+    }
+    if (e.key === 'ArrowDown' && idx < blocks.length - 1) {
+      const before = target.value.slice(0, target.selectionStart);
+      const lineIndex = before.split('\n').length - 1;
+      const totalLines = target.value.split('\n').length - 1;
+      if (lineIndex === totalLines) {
+        e.preventDefault();
+        flushBlock(idx);
+        setActiveIdx(idx + 1);
+        focusBlockStart(blockRefs.current[idx + 1]);
+      }
     }
   };
 
@@ -265,8 +311,7 @@ export function Editor({
     setActiveIdx(targetIdx);
     setTimeout(() => {
       const el = blockRefs.current[targetIdx];
-      el?.focus();
-      placeCaretAtEnd(el);
+      focusBlockEnd(el);
     }, 0);
   };
 
@@ -360,8 +405,15 @@ export function Editor({
     }
     setTimeout(() => {
       const el = blockRefs.current[idx];
-      el?.focus();
-      placeCaretAtEnd(el);
+      if (!el) return;
+      if (el.tagName === 'TEXTAREA') {
+        el.focus();
+        const ta = el as HTMLTextAreaElement;
+        ta.selectionStart = ta.selectionEnd = ta.value.length;
+      } else {
+        el.focus();
+        placeCaretAtEnd(el as HTMLDivElement);
+      }
     }, 0);
   };
 
@@ -398,31 +450,29 @@ export function Editor({
       return;
     }
 
-    if (e.key === 'ArrowUp' && idx > 0) {
+    if (e.key === 'ArrowUp' && idx > 0 && el) {
       const sel = window.getSelection();
       if (sel && sel.rangeCount > 0) {
-        const rect = sel.getRangeAt(0).getBoundingClientRect();
-        const prevEl = blockRefs.current[idx - 1];
-        if (prevEl && rect.top <= prevEl.getBoundingClientRect().bottom) {
+        const caretRect = sel.getRangeAt(0).getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        if (Math.abs(caretRect.top - elRect.top) < 8) {
           e.preventDefault();
           flushBlock(idx);
           setActiveIdx(idx - 1);
-          prevEl.focus();
-          placeCaretAtEnd(prevEl);
+          focusBlockEnd(blockRefs.current[idx - 1]);
         }
       }
     }
-    if (e.key === 'ArrowDown' && idx < blocks.length - 1) {
+    if (e.key === 'ArrowDown' && idx < blocks.length - 1 && el) {
       const sel = window.getSelection();
       if (sel && sel.rangeCount > 0) {
-        const rect = sel.getRangeAt(0).getBoundingClientRect();
-        const nextEl = blockRefs.current[idx + 1];
-        if (nextEl && rect.bottom >= nextEl.getBoundingClientRect().top) {
+        const caretRect = sel.getRangeAt(0).getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        if (Math.abs(caretRect.bottom - elRect.bottom) < 8) {
           e.preventDefault();
           flushBlock(idx);
           setActiveIdx(idx + 1);
-          nextEl.focus();
-          placeCaretAtEnd(nextEl);
+          focusBlockStart(blockRefs.current[idx + 1]);
         }
       }
     }
@@ -435,14 +485,10 @@ export function Editor({
     const el = blockRefs.current[idx];
     const text = normalizeText(el?.innerText || '');
 
-    // Real-time code block highlight so typing is visible
+    // react-simple-code-editor handles code block highlighting internally
     const block = blocks[idx];
-    if (block?.type === 'code' && el) {
-      const props = JSON.parse(block.props || '{}');
-      const preCode = el.parentElement?.querySelector('pre code');
-      if (preCode) {
-        preCode.innerHTML = hljs.highlight(text || '', { language: props.language || 'text' }).value;
-      }
+    if (block?.type === 'code') {
+      return;
     }
 
     if (text === '/') {
@@ -460,7 +506,18 @@ export function Editor({
 
     const wasShortcut = checkMarkdownShortcut(idx, text);
     if (wasShortcut) {
-      // Markdown shortcut handled
+      setTimeout(() => {
+        const el = blockRefs.current[idx];
+        if (!el) return;
+        if (el.tagName === 'TEXTAREA') {
+          el.focus();
+          const ta = el as HTMLTextAreaElement;
+          ta.selectionStart = ta.selectionEnd = ta.value.length;
+        } else {
+          el.focus();
+          placeCaretAtEnd(el as HTMLDivElement);
+        }
+      }, 0);
     }
   };
 
@@ -565,9 +622,14 @@ export function Editor({
     blocks.forEach((b, i) => {
       const el = blockRefs.current[i];
       if (!el) return;
+      if (b.type === 'code') {
+        // react-simple-code-editor manages its own textarea value
+        return;
+      }
       if (el.tagName === 'TEXTAREA') {
         const ta = el as HTMLTextAreaElement;
-        if (ta.value !== b.content) {
+        // Don't override the focused textarea to avoid fighting with browser input/composition
+        if (document.activeElement !== ta && ta.value !== b.content) {
           ta.value = b.content;
         }
       } else {
@@ -608,8 +670,17 @@ export function Editor({
       )}
       <div className="max-w-[800px] w-full mx-auto px-8 py-10">
         <input
+          ref={titleRef}
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (blocks.length > 0) {
+                activateBlock(0);
+              }
+            }
+          }}
           placeholder="Untitled"
           className="w-full bg-transparent text-4xl font-bold text-gray-100 placeholder-gray-600 outline-none mb-6"
         />
@@ -676,6 +747,9 @@ export function Editor({
               e.dataTransfer.setData('text/plain', String(index));
               e.dataTransfer.effectAllowed = 'move';
             };
+            const handleBlockDragEnd = () => {
+              // no-op to ensure drag cleanup in WebView2
+            };
 
             const handleBlockDragOver = (e: React.DragEvent) => {
               e.preventDefault();
@@ -705,9 +779,11 @@ export function Editor({
                 onDrop={(e) => handleBlockDrop(e, idx)}
               >
                 <div
-                  className="mt-1.5 w-5 text-center text-gray-500 select-none shrink-0 cursor-grab active:cursor-grabbing"
+                  className="mt-1 py-1 px-0.5 w-5 text-center text-gray-500 select-none shrink-0 cursor-grab active:cursor-grabbing rounded hover:bg-[#333]"
                   draggable
                   onDragStart={(e) => handleBlockDragStart(e, idx)}
+                  onDragEnd={handleBlockDragEnd}
+                  title="Drag to move"
                 >
                   ⋮⋮
                 </div>
@@ -730,27 +806,32 @@ export function Editor({
                         ))}
                       </select>
                     </div>
-                    <div className="relative rounded-b border-x border-b border-[#2f2f2f] overflow-hidden">
-                      <pre className="py-2 px-3 text-sm font-mono bg-[#151515] text-gray-300 whitespace-pre-wrap overflow-x-auto max-h-[500px] min-w-0 pointer-events-none">
-                        <code
-                          className={`language-${props.language || 'text'}`}
-                          dangerouslySetInnerHTML={{
-                            __html: hljs.highlight(block.content || ' ', { language: props.language || 'text' }).value,
-                          }}
-                        />
-                      </pre>
-                      <textarea
-                        ref={(el) => { blockRefs.current[idx] = el; }}
+                    <div
+                      className="rounded-b border-x border-b border-[#2f2f2f] overflow-hidden bg-[#151515]"
+                      ref={(el) => {
+                        if (el) {
+                          const ta = el.querySelector('textarea');
+                          if (ta) blockRefs.current[idx] = ta as HTMLElement;
+                        }
+                      }}
+                    >
+                      <SimpleEditor
                         value={block.content}
-                        onChange={(e) => {
+                        onValueChange={(code) => {
                           onEditorInput();
-                          updateBlock(idx, { content: e.target.value });
+                          updateBlock(idx, { content: code });
                         }}
-                        onKeyDown={(e) => handleCodeKeyDown(e, idx)}
+                        highlight={(code) => hljs.highlight(code || ' ', { language: props.language || 'text' }).value}
+                        padding={12}
+                        className="text-sm font-mono text-gray-300 whitespace-pre-wrap min-w-0"
+                        textareaClassName="bg-transparent text-transparent caret-white outline-none resize-none"
+                        preClassName="text-sm font-mono text-gray-300 whitespace-pre-wrap min-w-0"
+                        onKeyDown={(e) => handleCodeKeyDown(e as React.KeyboardEvent<HTMLTextAreaElement>, idx)}
                         onBlur={() => { flushBlock(idx); setActiveIdx(null); }}
                         onFocus={() => setActiveIdx(idx)}
                         spellCheck={false}
-                        className="absolute inset-0 py-2 px-3 text-sm font-mono bg-transparent text-transparent caret-white outline-none whitespace-pre-wrap resize-none overflow-x-auto max-h-[500px] min-w-0"
+                        ignoreTabKey={true}
+                        style={{ fontFamily: '"Fira Code", "Roboto Mono", monospace', minHeight: '1.5em' }}
                       />
                     </div>
                   </div>
@@ -818,5 +899,43 @@ function placeCaretAtEnd(el: HTMLElement | null) {
   if (sel) {
     sel.removeAllRanges();
     sel.addRange(range);
+  }
+}
+
+function focusBlockStart(el: HTMLElement | null) {
+  if (!el) return;
+  if (el.tagName === 'TEXTAREA') {
+    const ta = el as HTMLTextAreaElement;
+    ta.focus();
+    ta.selectionStart = ta.selectionEnd = 0;
+  } else {
+    el.focus();
+    const range = document.createRange();
+    if (!el.childNodes.length) {
+      const br = document.createElement('br');
+      el.appendChild(br);
+      range.setStartBefore(br);
+      range.collapse(true);
+    } else {
+      range.selectNodeContents(el);
+      range.collapse(true);
+    }
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+}
+
+function focusBlockEnd(el: HTMLElement | null) {
+  if (!el) return;
+  if (el.tagName === 'TEXTAREA') {
+    const ta = el as HTMLTextAreaElement;
+    ta.focus();
+    ta.selectionStart = ta.selectionEnd = ta.value.length;
+  } else {
+    el.focus();
+    placeCaretAtEnd(el);
   }
 }

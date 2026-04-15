@@ -48,11 +48,23 @@ function App() {
 
   const createPage = useCallback(
     async (parentId?: string) => {
-      const res = await api.createPage('New Page', parentId);
+      const siblings = pages.filter((p) =>
+        parentId ? p.parent_id === parentId : !p.parent_id
+      );
+      const existingTitles = new Set(siblings.map((p) => p.title));
+      let title = 'New Page';
+      if (existingTitles.has(title)) {
+        let counter = 2;
+        while (existingTitles.has(`${title} ${counter}`)) {
+          counter++;
+        }
+        title = `${title} ${counter}`;
+      }
+      const res = await api.createPage(title, parentId);
       await refreshPages();
       openPage(res.id);
     },
-    [refreshPages, openPage]
+    [pages, refreshPages, openPage]
   );
 
   const closeTab = useCallback(

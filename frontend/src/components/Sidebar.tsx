@@ -23,6 +23,7 @@ function PageTreeItem({
   onDeletePage,
   draggedId,
   dragOverId,
+  dragOverPos,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -41,6 +42,7 @@ function PageTreeItem({
   onDeletePage: (pageId: string) => void;
   draggedId: string | null;
   dragOverId: string | null;
+  dragOverPos: 'before' | 'after' | 'inside' | null;
   onDragStart: (e: React.DragEvent, pageId: string) => void;
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent, pageId: string) => void;
@@ -50,20 +52,26 @@ function PageTreeItem({
   selectedIds: Set<string>;
   onToggleSelect: (pageId: string) => void;
 }) {
-  const children = pages.filter((p) => p.parent_id === page.id);
+  const children = pages
+    .filter((p) => p.parent_id === page.id)
+    .sort((a, b) => a.sort_order - b.sort_order);
   const [expanded, setExpanded] = useState(true);
   const isActive = page.id === activePageId;
   const isSelected = selectedIds.has(page.id);
   const isDragging = draggedId === page.id;
   const isDragOver = dragOverId === page.id;
+  const myPos = isDragOver ? dragOverPos : null;
 
   return (
-    <div>
+    <div className="relative">
+      {myPos === 'before' && (
+        <div className="absolute -top-0.5 left-2 right-2 h-0.5 bg-blue-500 rounded z-10 pointer-events-none" />
+      )}
       <div
         className={[
           'flex items-center gap-1 px-2 py-1.5 text-sm rounded mx-2 select-none transition-colors',
           isActive ? 'bg-[#2a2a2a] text-white' : 'text-gray-300 hover:bg-[#252525]',
-          isDragOver ? 'ring-1 ring-blue-500 bg-blue-500/10' : '',
+          myPos === 'inside' ? 'ring-1 ring-blue-500 bg-blue-500/10' : '',
           isDragging ? 'opacity-50' : '',
         ].join(' ')}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
@@ -86,7 +94,8 @@ function PageTreeItem({
             onDragStart={(e) => onDragStart(e, page.id)}
             onDragEnd={onDragEnd}
             onClick={(e) => e.stopPropagation()}
-            className="p-0.5 text-gray-500 cursor-grab active:cursor-grabbing hover:bg-[#333] rounded"
+            className="p-1.5 text-gray-500 cursor-grab active:cursor-grabbing hover:bg-[#333] rounded"
+            title="Drag to move"
           >
             <GripVertical size={14} />
           </div>
@@ -123,6 +132,9 @@ function PageTreeItem({
           </>
         )}
       </div>
+      {myPos === 'after' && (
+        <div className="absolute -bottom-0.5 left-2 right-2 h-0.5 bg-blue-500 rounded z-10 pointer-events-none" />
+      )}
       {expanded &&
         children.map((child) => (
           <PageTreeItem
@@ -136,6 +148,7 @@ function PageTreeItem({
             onDeletePage={onDeletePage}
             draggedId={draggedId}
             dragOverId={dragOverId}
+            dragOverPos={dragOverPos}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
             onDragOver={onDragOver}
@@ -152,11 +165,14 @@ function PageTreeItem({
 
 export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDeletePage, onDeletePages, onOpenSearch, onReorderPages }: SidebarProps) {
   const safePages = pages || [];
-  const rootPages = safePages.filter((p) => !p.parent_id);
+  const rootPages = safePages
+    .filter((p) => !p.parent_id)
+    .sort((a, b) => a.sort_order - b.sort_order);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dragOverPos, setDragOverPos] = useState<'before' | 'after' | 'inside' | null>(null);
 
   const toggleSelect = (pageId: string) => {
     setSelectedIds((prev) => {
@@ -181,15 +197,70 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
     e.dataTransfer.effectAllowed = 'move';
     setDraggedId(pageId);
   };
-  const handleDragEnd = () => { setDraggedId(null); setDragOverId(null); };
-  const handleDragOver = (e: React.DragEvent, pageId: string) => { e.preventDefault(); if (draggedId && draggedId !== pageId) setDragOverId(pageId); };
-  const handleDragLeave = (pageId: string) => { if (dragOverId === pageId) setDragOverId(null); };
+  const handleDragEnd = () => { setDraggedId(null); setDragOverId(null); setDragOverPos(null); };
+  const handleDragOver = (e: React.DragEvent, pageId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!draggedId || draggedId === pageId) {
+      setDragOverId(null);
+      setDragOverPos(null);
+      return;
+    }
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const pct = y / rect.height;
+    let pos: 'before' | 'after' | 'inside' = 'inside';
+    if (pct < 0.3) pos = 'before';
+    else if (pct > 0.7) pos = 'after';
+    setDragOverId(pageId);
+    setDragOverPos(pos);
+  };
+  const handleDragLeave = (pageId: string) => {
+    if (dragOverId === pageId) {
+      setDragOverId(null);
+      setDragOverPos(null);
+    }
+  };
+
+  const reorderSiblings = (draggedId: string, target: Page, pos: 'before' | 'after') => {
+    if (!onReorderPages) return;
+    const siblings = safePages
+      .filter((p) => p.parent_id === target.parent_id)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const draggedIdx = siblings.findIndex((p) => p.id === draggedId);
+    if (draggedIdx !== -1) {
+      siblings.splice(draggedIdx, 1);
+    }
+    const targetIdx = siblings.findIndex((p) => p.id === target.id);
+    const insertIdx = pos === 'before' ? targetIdx : targetIdx + 1;
+    const draggedPage = safePages.find((p) => p.id === draggedId);
+    if (draggedPage) {
+      siblings.splice(insertIdx, 0, draggedPage);
+    }
+    const updated = safePages.map((p) => {
+      const idx = siblings.findIndex((s) => s.id === p.id);
+      if (idx !== -1) {
+        return { ...p, parent_id: target.parent_id, sort_order: idx };
+      }
+      return p;
+    });
+    onReorderPages(updated);
+  };
 
   const applyReorder = (draggedId: string, targetParentId?: string) => {
     if (!onReorderPages) return;
+    const siblings = safePages
+      .filter((p) => p.parent_id === targetParentId)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const draggedPage = safePages.find((p) => p.id === draggedId);
+    if (!draggedPage) return;
+    if (draggedPage.parent_id === targetParentId) return; // already there
+    siblings.push(draggedPage);
     const updated = safePages.map((p) => {
-      if (p.id === draggedId) {
-        return { ...p, parent_id: targetParentId };
+      const idx = siblings.findIndex((s) => s.id === p.id);
+      if (idx !== -1) {
+        return { ...p, parent_id: targetParentId, sort_order: idx };
       }
       return p;
     });
@@ -207,8 +278,12 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
       handleDragEnd();
       return;
     }
-    // Dropping on a page makes the dragged page a child of that page
-    applyReorder(draggedId, targetPageId);
+    const pos = dragOverPos || 'inside';
+    if (pos === 'inside') {
+      applyReorder(draggedId, targetPageId);
+    } else {
+      reorderSiblings(draggedId, target, pos);
+    }
     handleDragEnd();
   };
 
@@ -261,7 +336,7 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
 
       <div
         className="flex-1 overflow-y-auto py-1"
-        onDragOver={(e) => e.preventDefault()}
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
         onDrop={handleRootDrop}
       >
         {rootPages.map((page) => (
@@ -276,6 +351,7 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
               onDeletePage={onDeletePage}
               draggedId={draggedId}
               dragOverId={dragOverId}
+              dragOverPos={dragOverPos}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
               onDragOver={handleDragOver}
