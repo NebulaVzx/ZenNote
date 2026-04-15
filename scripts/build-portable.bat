@@ -31,7 +31,7 @@ if errorlevel 1 (
 echo.
 echo [2/5] Building Go backend...
 cd /d "%REPO_ROOT%\backend"
-call go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -64 -o resource.syso versioninfo.json
+call go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -64 -icon "../src-tauri/icons/icon.ico" -o resource.syso versioninfo.json
 if errorlevel 1 (
     echo [ERROR] Failed to generate version info for backend.
     exit /b 1

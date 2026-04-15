@@ -464,6 +464,43 @@ export function Editor({
       return;
     }
 
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        const startEl = blockRefs.current[idx];
+        let isMultiBlock = false;
+        if (startEl) {
+          try {
+            const common = range.commonAncestorContainer;
+            isMultiBlock = !(common === startEl || startEl.contains(common));
+          } catch {
+            isMultiBlock = false;
+          }
+        }
+        if (isMultiBlock) {
+          e.preventDefault();
+          const toDelete: number[] = [];
+          blockRefs.current.forEach((el, i) => {
+            if (el && range.intersectsNode(el)) {
+              toDelete.push(i);
+            }
+          });
+          if (toDelete.length > 0) {
+            setBlocks((prev) => {
+              const next = prev.filter((_, i) => !toDelete.includes(i));
+              if (next.length === 0) return [createEmptyBlock()];
+              return next.map((b, i) => ({ ...b, sort_order: i }));
+            });
+            const newActive = Math.max(0, toDelete[0] - 1);
+            setActiveIdx(newActive);
+            setTimeout(() => focusBlockEnd(blockRefs.current[newActive]), 0);
+          }
+          return;
+        }
+      }
+    }
+
     if (e.key === 'Backspace' && text.trim() === '') {
       e.preventDefault();
       if (slashOpen) setSlashOpen(false);
