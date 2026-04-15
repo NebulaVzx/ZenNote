@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 :: ZenNote Windows Portable Build Script
 :: Run this from the repository root
 
-set "VERSION=0.2.1"
+set "VERSION=0.2.2"
 
 echo ===========================================
 echo  ZenNote Portable Build for Windows
@@ -31,8 +31,15 @@ if errorlevel 1 (
 echo.
 echo [2/5] Building Go backend...
 cd /d "%REPO_ROOT%\backend"
-call go build -ldflags "-H=windowsgui -s -w" -o zennote-backend.exe .
+call go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -64 -o resource.syso versioninfo.json
 if errorlevel 1 (
+    echo [ERROR] Failed to generate version info for backend.
+    exit /b 1
+)
+call go build -ldflags "-H=windowsgui -s -w" -o zennote-backend.exe .
+set BUILD_ERR=%errorlevel%
+if exist resource.syso del resource.syso
+if %BUILD_ERR% neq 0 (
     echo [ERROR] Backend build failed.
     exit /b 1
 )

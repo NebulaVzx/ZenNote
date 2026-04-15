@@ -52,6 +52,7 @@ export function Editor({
   const titleRef = useRef<HTMLInputElement>(null);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [localTitle, setLocalTitle] = useState(title);
+  const lastSelectAllRef = useRef<number>(0);
 
   useEffect(() => {
     setLocalTitle(title);
@@ -413,6 +414,40 @@ export function Editor({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, idx: number) => {
     const el = blockRefs.current[idx];
     const text = getBlockText(idx);
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      const now = Date.now();
+      const timeSinceLast = now - lastSelectAllRef.current;
+      lastSelectAllRef.current = now;
+
+      if (timeSinceLast < 600) {
+        // Double Ctrl+A -> select all blocks
+        const sel = window.getSelection();
+        const first = blockRefs.current.find((el): el is HTMLElement => !!el);
+        const last = [...blockRefs.current].reverse().find((el): el is HTMLElement => !!el);
+        if (sel && first && last) {
+          const range = document.createRange();
+          range.setStartBefore(first);
+          range.setEndAfter(last);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      } else {
+        // Single Ctrl+A -> select current block
+        const cur = blockRefs.current[idx];
+        if (cur) {
+          const range = document.createRange();
+          range.selectNodeContents(cur);
+          const sel = window.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        }
+      }
+      return;
+    }
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
