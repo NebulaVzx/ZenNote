@@ -37,3 +37,6 @@ data.db
 *.db-journal
 *.db-wal
 *.db-shm
+.claude/
+release/
+debug.txt
