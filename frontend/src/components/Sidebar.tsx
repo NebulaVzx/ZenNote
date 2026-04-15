@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FileText, Plus, Search, ChevronRight, ChevronDown, GripVertical, Trash2 } from 'lucide-react';
 import type { Page } from '../types';
+import { ConfirmModal } from './ConfirmModal';
 
 interface SidebarProps {
   pages: Page[];
@@ -20,7 +21,7 @@ function PageTreeItem({
   activePageId,
   onSelectPage,
   onCreatePage,
-  onDeletePage,
+  onRequestDelete,
   draggedId,
   dragOverId,
   dragOverPos,
@@ -39,7 +40,7 @@ function PageTreeItem({
   activePageId?: string;
   onSelectPage: (p: Page) => void;
   onCreatePage: (parentId?: string) => void;
-  onDeletePage: (pageId: string) => void;
+  onRequestDelete: (page: Page) => void;
   draggedId: string | null;
   dragOverId: string | null;
   dragOverPos: 'before' | 'after' | 'inside' | null;
@@ -123,7 +124,7 @@ function PageTreeItem({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (confirm(`Delete "${page.title || 'Untitled'}"?`)) onDeletePage(page.id);
+                onRequestDelete(page);
               }}
               className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-600/80 rounded text-gray-400 hover:text-white"
             >
@@ -145,7 +146,7 @@ function PageTreeItem({
             activePageId={activePageId}
             onSelectPage={onSelectPage}
             onCreatePage={onCreatePage}
-            onDeletePage={onDeletePage}
+            onRequestDelete={onRequestDelete}
             draggedId={draggedId}
             dragOverId={dragOverId}
             dragOverPos={dragOverPos}
@@ -163,6 +164,17 @@ function PageTreeItem({
   );
 }
 
+function getDescendantIds(pageId: string, pages: Page[]): string[] {
+  const ids: string[] = [];
+  const queue = [pageId];
+  while (queue.length) {
+    const current = queue.shift()!;
+    ids.push(current);
+    pages.filter((p) => p.parent_id === current).forEach((p) => queue.push(p.id));
+  }
+  return ids;
+}
+
 export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDeletePage, onDeletePages, onOpenSearch, onReorderPages }: SidebarProps) {
   const safePages = pages || [];
   const rootPages = safePages
@@ -173,23 +185,54 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [dragOverPos, setDragOverPos] = useState<'before' | 'after' | 'inside' | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const toggleSelect = (pageId: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(pageId)) next.delete(pageId);
-      else next.add(pageId);
+      const ids = getDescendantIds(pageId, safePages);
+      const selecting = !next.has(pageId);
+      ids.forEach((id) => {
+        if (selecting) next.add(id);
+        else next.delete(id);
+      });
       return next;
     });
   };
 
-  const handleBulkDelete = async () => {
+  const handleRequestDelete = (page: Page) => {
+    setConfirmState({
+      title: 'Delete page',
+      message: `Delete "${page.title || 'Untitled'}"?`,
+      onConfirm: () => onDeletePage(page.id),
+    });
+    setConfirmOpen(true);
+  };
+
+  const handleBulkDelete = () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Delete ${selectedIds.size} selected pages?`)) return;
-    const ids = Array.from(selectedIds);
-    await onDeletePages?.(ids);
-    setSelectedIds(new Set());
-    setSelectionMode(false);
+    setConfirmState({
+      title: 'Delete pages',
+      message: `Delete ${selectedIds.size} selected pages?`,
+      onConfirm: () => {
+        const ids = Array.from(selectedIds);
+        onDeletePages?.(ids);
+        setSelectedIds(new Set());
+        setSelectionMode(false);
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  const handleConfirm = () => {
+    confirmState?.onConfirm();
+    setConfirmOpen(false);
+    setConfirmState(null);
   };
 
   const handleDragStart = (e: React.DragEvent, pageId: string) => {
@@ -348,7 +391,7 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
               activePageId={activePageId}
               onSelectPage={onSelectPage}
               onCreatePage={onCreatePage}
-              onDeletePage={onDeletePage}
+              onRequestDelete={handleRequestDelete}
               draggedId={draggedId}
               dragOverId={dragOverId}
               dragOverPos={dragOverPos}
@@ -364,6 +407,14 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
           </div>
         ))}
       </div>
+
+      <ConfirmModal
+        open={confirmOpen}
+        title={confirmState?.title || ''}
+        message={confirmState?.message || ''}
+        onConfirm={handleConfirm}
+        onCancel={() => { setConfirmOpen(false); setConfirmState(null); }}
+      />
     </div>
   );
 }
