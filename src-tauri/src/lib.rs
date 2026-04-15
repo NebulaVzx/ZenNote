@@ -31,7 +31,7 @@ fn try_start_backend() -> Option<Child> {
 
     let exe_path = std::env::current_exe().ok()?;
     let exe_dir = exe_path.parent()?;
-    let backend_exe = exe_dir.join("zennote-backend.exe");
+    let backend_exe = exe_dir.join("bin").join("zennote-backend.exe");
 
     if !backend_exe.exists() {
         return None;

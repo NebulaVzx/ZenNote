@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:v2.tauri.app)",
+      "WebFetch(domain:stackoverflow.com)",
+      "WebFetch(domain:docs.rs)",
+      "Bash(cargo doc:*)",
+      "Bash(grep -rn \"set_icon\" target/debug/.fingerprint/tauri-*/out/*.rs)",
+      "Bash(npx tsc:*)",
+      "Bash(cargo check:*)",
+      "Bash(npm install:*)",
+      "Bash(cargo clean:*)",
+      "Bash(node -e \"const hljs = require\\('highlight.js'\\); try { console.log\\(hljs.highlight\\('test', {language: 'text'}\\).value\\); } catch\\(e\\) { console.log\\('ERROR:', e.message\\); }\")",
+      "Bash(npm run *)",
+      "Bash(powershell -Command \"Get-Command Compress-Archive\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(npx tauri *)",
+      "Bash(scripts/build-portable.bat)"
+    ]
+  }
+}

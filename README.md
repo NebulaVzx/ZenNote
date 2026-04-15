@@ -2,7 +2,7 @@
 
 一款本地优先的块级 Markdown 笔记软件，支持类 Notion 的编辑体验和 S3 兼容存储的云端同步。
 
-> **状态**：Phase 1 MVP 与 Phase 2 云端同步已完成，进入 Phase 3 AI 辅助开发阶段
+> **状态**：Phase 1 MVP 与 Phase 2 云端同步已完成，进入 Phase 3 AI 辅助开发阶段。Windows 便携版已支持一键打包（含自动 bundled 后端）。
 
 ---
 
@@ -68,20 +68,18 @@ cd ..
 
 ### 2. 启动后端服务
 
-打开**单独的终端**，运行：
+**开发模式**：打开**单独的终端**，运行：
 
 ```bash
 cd backend
-# Windows
-.\zennote-backend.exe
-
-# 或直接从源码编译运行
 go run .
 ```
 
 后端默认监听：`http://localhost:8080`
 
 > 首次启动会自动在工作目录创建 `ZenNoteWorkspace` 文件夹和 SQLite 数据库。
+
+**Release / 便携版**：`ZenNote.exe` 已内置自动 bundled `bin/zennote-backend.exe`，双击即可运行，无需手动启动后端。
 
 ### 3. 启动桌面端（开发模式）
 
@@ -107,6 +105,7 @@ npm run tauri dev
 | `npm run tauri build` | 打包 Tauri 桌面端安装程序 |
 | `cd backend && go run .` | 从源码启动 Go 后端 |
 | `cd backend && go build -o zennote-backend.exe .` | 编译后端可执行文件 |
+| `scripts\build-portable.bat` | 一键打包 Windows 便携版（含前后端）到 `release/vX.X.X/` |
 
 ---
 

@@ -309,32 +309,32 @@ export function Editor({
   };
 
   const checkMarkdownShortcut = (idx: number, text: string) => {
-    if (text === '# ') {
+    if (text === '#') {
       updateBlock(idx, { type: 'heading', content: '', props: JSON.stringify({ level: 1 }) });
       setBlockText(idx, '');
       return true;
     }
-    if (text === '## ') {
+    if (text === '##') {
       updateBlock(idx, { type: 'heading', content: '', props: JSON.stringify({ level: 2 }) });
       setBlockText(idx, '');
       return true;
     }
-    if (text === '- ') {
+    if (text === '-') {
       updateBlock(idx, { type: 'bullet_list', content: '' });
       setBlockText(idx, '');
       return true;
     }
-    if (text === '1. ') {
+    if (text === '1.') {
       updateBlock(idx, { type: 'numbered_list', content: '' });
       setBlockText(idx, '');
       return true;
     }
-    if (text === '[] ') {
+    if (text === '[]') {
       updateBlock(idx, { type: 'todo_list', content: '', props: JSON.stringify({ checked: false }) });
       setBlockText(idx, '');
       return true;
     }
-    if (text === '> ') {
+    if (text === '>') {
       updateBlock(idx, { type: 'paragraph', content: '' });
       setBlockText(idx, '');
       return true;

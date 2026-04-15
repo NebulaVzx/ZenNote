@@ -1,0 +1,33 @@
+# Yongbin @ LAPTOP-SFQNJCBU in D:\xProjects\Vibe\ZenNote on git:main x [18:01:01] C:1
+$ scripts\build-portable.bat
+===========================================
+ ZenNote Portable Build for Windows
+===========================================
+
+[INFO] Working directory: D:\xProjects\Vibe\ZenNote
+
+[1/4] Building frontend...
+
+> tauri-app@0.1.0 build
+> tsc && vite build
+
+vite v7.3.2 building client environment for production...
+✓ 1952 modules transformed.
+dist/index.html                     0.47 kB │ gzip:   0.30 kB
+dist/assets/index-BIMWrcGk.css     19.15 kB │ gzip:   4.77 kB
+dist/assets/index-B1nkjTul.js   1,236.73 kB │ gzip: 394.84 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.83s
+
+[2/4] Building Tauri app (release)...
+error: no such command: `tauri`
+
+help: a command with a similar name exists: `miri`
+
+help: view all installed commands with `cargo --list`
+help: find a package to install `tauri` with `cargo search cargo-tauri`
+[ERROR] Tauri build failed.

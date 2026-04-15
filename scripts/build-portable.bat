@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 :: ZenNote Windows Portable Build Script
 :: Run this from the repository root
 
-set "VERSION=0.2.0"
+set "VERSION=0.2.1"
 
 echo ===========================================
 echo  ZenNote Portable Build for Windows
@@ -53,11 +53,12 @@ echo [4/5] Preparing portable package...
 cd /d "%REPO_ROOT%"
 if exist "release\portable" rmdir /s /q "release\portable"
 mkdir "release\portable"
+mkdir "release\portable\bin"
 
 set "EXE_SRC=%REPO_ROOT%\src-tauri\target\release\tauri-app.exe"
 set "EXE_DST=%REPO_ROOT%\release\portable\ZenNote.exe"
 set "BACKEND_SRC=%REPO_ROOT%\backend\zennote-backend.exe"
-set "BACKEND_DST=%REPO_ROOT%\release\portable\zennote-backend.exe"
+set "BACKEND_DST=%REPO_ROOT%\release\portable\bin\zennote-backend.exe"
 
 if not exist "%EXE_SRC%" (
     echo [ERROR] Built executable not found: %EXE_SRC%
