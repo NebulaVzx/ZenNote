@@ -51,6 +51,11 @@ export function Editor({
   const editorRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const [localTitle, setLocalTitle] = useState(title);
+
+  useEffect(() => {
+    setLocalTitle(title);
+  }, [title]);
 
   // Slash command state
   const [slashOpen, setSlashOpen] = useState(false);
@@ -649,11 +654,15 @@ export function Editor({
       <div className="max-w-[800px] w-full mx-auto px-8 py-10">
         <input
           ref={titleRef}
-          value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
+          value={localTitle}
+          onChange={(e) => setLocalTitle(e.target.value)}
+          onBlur={() => {
+            if (localTitle !== title) onTitleChange(localTitle);
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
+              if (localTitle !== title) onTitleChange(localTitle);
               if (blocks.length > 0) {
                 activateBlock(0);
               }
