@@ -31,7 +31,7 @@ if errorlevel 1 (
 echo.
 echo [2/5] Building Go backend...
 cd /d "%REPO_ROOT%\backend"
-call go build -ldflags "-s -w" -o zennote-backend.exe .
+call go build -ldflags "-H=windowsgui -s -w" -o zennote-backend.exe .
 if errorlevel 1 (
     echo [ERROR] Backend build failed.
     exit /b 1
@@ -94,5 +94,8 @@ echo ===========================================
 echo  Build complete!
 echo  Output: %ZIP_PATH%
 echo ===========================================
+
+:: Clean up temporary portable folder
+if exist "release\portable" rmdir /s /q "release\portable"
 
 endlocal

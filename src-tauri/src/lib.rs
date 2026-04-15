@@ -5,6 +5,12 @@ use std::thread;
 use std::time::Duration;
 use tauri::Manager;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -31,10 +37,13 @@ fn try_start_backend() -> Option<Child> {
         return None;
     }
 
-    let child = Command::new(backend_exe)
-        .current_dir(exe_dir)
-        .spawn()
-        .ok()?;
+    let mut cmd = Command::new(backend_exe);
+    cmd.current_dir(exe_dir);
+
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let child = cmd.spawn().ok()?;
 
     // Allow the backend a moment to bind to :8080
     thread::sleep(Duration::from_millis(800));
