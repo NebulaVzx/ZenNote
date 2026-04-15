@@ -192,6 +192,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             Save
           </button>
         </div>
+        <div className="mt-4 text-center text-xs text-gray-500">ZenNote v0.2.0</div>
       </div>
     </div>
   );

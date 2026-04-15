@@ -4,8 +4,11 @@ setlocal enabledelayedexpansion
 :: ZenNote Windows Portable Build Script
 :: Run this from the repository root
 
+set "VERSION=0.2.0"
+
 echo ===========================================
 echo  ZenNote Portable Build for Windows
+echo  Version: %VERSION%
 echo ===========================================
 echo.
 
@@ -16,7 +19,7 @@ echo [INFO] Working directory: %REPO_ROOT%
 
 :: Step 1: Build frontend
 echo.
-echo [1/4] Building frontend...
+echo [1/5] Building frontend...
 cd /d "%REPO_ROOT%\frontend"
 call npm run build
 if errorlevel 1 (
@@ -24,9 +27,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Step 2: Build Tauri app
+:: Step 2: Build Go backend
 echo.
-echo [2/4] Building Tauri app (release)...
+echo [2/5] Building Go backend...
+cd /d "%REPO_ROOT%\backend"
+call go build -ldflags "-s -w" -o zennote-backend.exe .
+if errorlevel 1 (
+    echo [ERROR] Backend build failed.
+    exit /b 1
+)
+
+:: Step 3: Build Tauri app
+echo.
+echo [3/5] Building Tauri app (release)...
 cd /d "%REPO_ROOT%"
 call npx tauri build
 if errorlevel 1 (
@@ -34,30 +47,41 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Step 3: Prepare portable directory
+:: Step 4: Prepare portable directory
 echo.
-echo [3/4] Preparing portable package...
+echo [4/5] Preparing portable package...
 cd /d "%REPO_ROOT%"
 if exist "release\portable" rmdir /s /q "release\portable"
 mkdir "release\portable"
 
-set "EXE_SRC=src-tauri\target\release\tauri-app.exe"
-set "EXE_DST=release\portable\ZenNote.exe"
+set "EXE_SRC=%REPO_ROOT%\src-tauri\target\release\tauri-app.exe"
+set "EXE_DST=%REPO_ROOT%\release\portable\ZenNote.exe"
+set "BACKEND_SRC=%REPO_ROOT%\backend\zennote-backend.exe"
+set "BACKEND_DST=%REPO_ROOT%\release\portable\zennote-backend.exe"
 
 if not exist "%EXE_SRC%" (
     echo [ERROR] Built executable not found: %EXE_SRC%
     echo [ERROR] Make sure 'npx tauri build' succeeded.
     exit /b 1
 )
+if not exist "%BACKEND_SRC%" (
+    echo [ERROR] Built backend not found: %BACKEND_SRC%
+    echo [ERROR] Make sure 'go build' succeeded.
+    exit /b 1
+)
 
 copy /y "%EXE_SRC%" "%EXE_DST%" >nul
 echo [INFO] Copied %EXE_SRC% -^> %EXE_DST%
+copy /y "%BACKEND_SRC%" "%BACKEND_DST%" >nul
+echo [INFO] Copied %BACKEND_SRC% -^> %BACKEND_DST%
 
-:: Step 4: Zip the portable package
+:: Step 5: Zip the portable package
 echo.
-echo [4/4] Creating zip archive...
-set "ZIP_PATH=%REPO_ROOT%\release\ZenNote-portable-windows.zip"
-if exist "%ZIP_PATH%" del /f "%ZIP_PATH%"
+echo [5/5] Creating zip archive...
+set "OUT_DIR=%REPO_ROOT%\release\v%VERSION%"
+set "ZIP_PATH=%OUT_DIR%\ZenNote-portable-windows.zip"
+if exist "%OUT_DIR%" rmdir /s /q "%OUT_DIR%"
+mkdir "%OUT_DIR%"
 
 powershell -NoProfile -Command "Compress-Archive -Path '%REPO_ROOT%\release\portable\*' -DestinationPath '%ZIP_PATH%' -Force"
 if errorlevel 1 (
