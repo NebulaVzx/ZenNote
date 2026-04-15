@@ -451,29 +451,19 @@ export function Editor({
     }
 
     if (e.key === 'ArrowUp' && idx > 0 && el) {
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount > 0) {
-        const caretRect = sel.getRangeAt(0).getBoundingClientRect();
-        const elRect = el.getBoundingClientRect();
-        if (Math.abs(caretRect.top - elRect.top) < 8) {
-          e.preventDefault();
-          flushBlock(idx);
-          setActiveIdx(idx - 1);
-          focusBlockEnd(blockRefs.current[idx - 1]);
-        }
+      if (isAtBlockStart(el)) {
+        e.preventDefault();
+        flushBlock(idx);
+        setActiveIdx(idx - 1);
+        focusBlockEnd(blockRefs.current[idx - 1]);
       }
     }
     if (e.key === 'ArrowDown' && idx < blocks.length - 1 && el) {
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount > 0) {
-        const caretRect = sel.getRangeAt(0).getBoundingClientRect();
-        const elRect = el.getBoundingClientRect();
-        if (Math.abs(caretRect.bottom - elRect.bottom) < 8) {
-          e.preventDefault();
-          flushBlock(idx);
-          setActiveIdx(idx + 1);
-          focusBlockStart(blockRefs.current[idx + 1]);
-        }
+      if (isAtBlockEnd(el)) {
+        e.preventDefault();
+        flushBlock(idx);
+        setActiveIdx(idx + 1);
+        focusBlockStart(blockRefs.current[idx + 1]);
       }
     }
   };
@@ -881,6 +871,28 @@ export function Editor({
       </div>
     </div>
   );
+}
+
+function isAtBlockStart(el: HTMLElement) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const range = sel.getRangeAt(0);
+  if (!range.collapsed) return false;
+  const pre = document.createRange();
+  pre.setStart(el, 0);
+  pre.setEnd(range.startContainer, range.startOffset);
+  return pre.toString().length === 0;
+}
+
+function isAtBlockEnd(el: HTMLElement) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const range = sel.getRangeAt(0);
+  if (!range.collapsed) return false;
+  const post = document.createRange();
+  post.setStart(range.endContainer, range.endOffset);
+  post.setEndAfter(el.lastChild || el);
+  return post.toString().length === 0;
 }
 
 function placeCaretAtEnd(el: HTMLElement | null) {
