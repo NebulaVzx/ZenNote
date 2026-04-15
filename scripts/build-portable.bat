@@ -27,8 +27,8 @@ if errorlevel 1 (
 :: Step 2: Build Tauri app
 echo.
 echo [2/4] Building Tauri app (release)...
-cd /d "%REPO_ROOT%\src-tauri"
-call cargo tauri build
+cd /d "%REPO_ROOT%"
+call npx tauri build
 if errorlevel 1 (
     echo [ERROR] Tauri build failed.
     exit /b 1
@@ -41,17 +41,17 @@ cd /d "%REPO_ROOT%"
 if exist "release\portable" rmdir /s /q "release\portable"
 mkdir "release\portable"
 
-set "EXE_SRC=src-tauri\target\release\ZenNote.exe"
+set "EXE_SRC=src-tauri\target\release\tauri-app.exe"
 set "EXE_DST=release\portable\ZenNote.exe"
 
 if not exist "%EXE_SRC%" (
     echo [ERROR] Built executable not found: %EXE_SRC%
-    echo [ERROR] Make sure 'cargo tauri build' succeeded.
+    echo [ERROR] Make sure 'npx tauri build' succeeded.
     exit /b 1
 )
 
 copy /y "%EXE_SRC%" "%EXE_DST%" >nul
-echo [INFO] Copied %EXE_SRC% -> %EXE_DST%
+echo [INFO] Copied %EXE_SRC% -^> %EXE_DST%
 
 :: Step 4: Zip the portable package
 echo.
