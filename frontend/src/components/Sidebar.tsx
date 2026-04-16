@@ -47,7 +47,7 @@ function PageTreeItem({
   onDragStart: (e: React.DragEvent, pageId: string) => void;
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent, pageId: string) => void;
-  onDragLeave: (pageId: string) => void;
+  onDragLeave: (e: React.DragEvent, pageId: string) => void;
   onDrop: (e: React.DragEvent, pageId: string) => void;
   selectionMode: boolean;
   selectedIds: Set<string>;
@@ -78,7 +78,8 @@ function PageTreeItem({
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={() => onSelectPage(page)}
         onDragOver={(e) => { e.preventDefault(); onDragOver(e, page.id); }}
-        onDragLeave={() => onDragLeave(page.id)}
+        onDragEnter={(e) => { e.preventDefault(); }}
+        onDragLeave={(e) => onDragLeave(e, page.id)}
         onDrop={(e) => { e.preventDefault(); onDrop(e, page.id); }}
       >
         {selectionMode ? (
@@ -238,6 +239,9 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
   const handleDragStart = (e: React.DragEvent, pageId: string) => {
     e.dataTransfer.setData('text/plain', pageId);
     e.dataTransfer.effectAllowed = 'move';
+    const img = new Image();
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    e.dataTransfer.setDragImage(img, 0, 0);
     setDraggedId(pageId);
   };
   const handleDragEnd = () => { setDraggedId(null); setDragOverId(null); setDragOverPos(null); };
@@ -259,7 +263,12 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
     setDragOverId(pageId);
     setDragOverPos(pos);
   };
-  const handleDragLeave = (pageId: string) => {
+  const handleDragLeave = (e: React.DragEvent, pageId: string) => {
+    const related = e.relatedTarget as Node | null;
+    const current = e.currentTarget as Node | null;
+    if (current && related && current.contains(related)) {
+      return;
+    }
     if (dragOverId === pageId) {
       setDragOverId(null);
       setDragOverPos(null);
@@ -312,7 +321,9 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
 
   const handleDrop = (e: React.DragEvent, targetPageId: string) => {
     e.preventDefault();
-    if (!draggedId || draggedId === targetPageId) {
+    const raw = e.dataTransfer.getData('text/plain');
+    const draggedIdFromData = raw || draggedId;
+    if (!draggedIdFromData || draggedIdFromData === targetPageId) {
       handleDragEnd();
       return;
     }
@@ -323,17 +334,22 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
     }
     const pos = dragOverPos || 'inside';
     if (pos === 'inside') {
-      applyReorder(draggedId, targetPageId);
+      applyReorder(draggedIdFromData, targetPageId);
     } else {
-      reorderSiblings(draggedId, target, pos);
+      reorderSiblings(draggedIdFromData, target, pos);
     }
     handleDragEnd();
   };
 
   const handleRootDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (!draggedId) return;
-    applyReorder(draggedId, undefined);
+    const raw = e.dataTransfer.getData('text/plain');
+    const draggedIdFromData = raw || draggedId;
+    if (!draggedIdFromData) {
+      handleDragEnd();
+      return;
+    }
+    applyReorder(draggedIdFromData, undefined);
     handleDragEnd();
   };
 

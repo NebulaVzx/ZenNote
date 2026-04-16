@@ -52,6 +52,9 @@ export function Editor({
   const editorRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [dragOverPos, setDragOverPos] = useState<'before' | 'after' | null>(null);
   const [localTitle, setLocalTitle] = useState(title);
   const lastSelectAllRef = useRef<number>(0);
 
@@ -609,6 +612,67 @@ export function Editor({
     }
   };
 
+  const handleBlockDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('text/plain', String(index));
+    e.dataTransfer.effectAllowed = 'move';
+    const img = new Image();
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    e.dataTransfer.setDragImage(img, 0, 0);
+    setDraggedIdx(index);
+  };
+
+  const handleBlockDragEnd = () => {
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+    setDragOverPos(null);
+  };
+
+  const handleBlockDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedIdx === null || draggedIdx === index) {
+      setDragOverIdx(null);
+      setDragOverPos(null);
+      return;
+    }
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const pos = y < rect.height / 2 ? 'before' : 'after';
+    setDragOverIdx(index);
+    setDragOverPos(pos);
+  };
+
+  const handleBlockDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    const raw = e.dataTransfer.getData('text/plain');
+    const fromIdx = parseInt(raw, 10);
+    if (isNaN(fromIdx) || fromIdx === targetIdx) {
+      handleBlockDragEnd();
+      return;
+    }
+    let insertIdx = targetIdx;
+    if (dragOverPos === 'after') insertIdx = targetIdx + 1;
+    if (fromIdx < insertIdx) insertIdx -= 1;
+
+    setBlocks((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(insertIdx, 0, moved);
+      return next.map((b, i) => ({ ...b, sort_order: i }));
+    });
+
+    setActiveIdx((prev) => {
+      if (prev === null) return null;
+      if (prev === fromIdx) return insertIdx;
+      if (fromIdx < prev && insertIdx >= prev) return prev - 1;
+      if (fromIdx > prev && insertIdx <= prev) return prev + 1;
+      return prev;
+    });
+
+    handleBlockDragEnd();
+  };
+
   const applyInlineFormat = (tag: string) => {
     document.execCommand(tag, false);
     setToolbarVisible(false);
@@ -756,12 +820,50 @@ export function Editor({
             const props = JSON.parse(block.props || '{}');
             const isActive = activeIdx === idx;
 
+            let leftIcon: React.ReactNode = null;
             if (block.type === 'toggle') {
-              return (
-                <div key={block.id} data-block-idx={idx} className="flex items-start gap-2 group">
-                  <button onClick={() => toggleExpand(idx)} className="mt-2 w-6 text-center text-gray-400 select-none shrink-0 hover:text-gray-200">
-                    {props.expanded ? '▼' : '▶'}
-                  </button>
+              leftIcon = (
+                <button onClick={() => toggleExpand(idx)} className="mt-2 w-6 text-center text-gray-400 select-none shrink-0 hover:text-gray-200">
+                  {props.expanded ? '▼' : '▶'}
+                </button>
+              );
+            } else if (block.type === 'bullet_list') leftIcon = <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">•</span>;
+            else if (block.type === 'numbered_list') leftIcon = <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">1.</span>;
+            else if (block.type === 'todo_list') {
+              leftIcon = (
+                <input
+                  type="checkbox"
+                  tabIndex={-1}
+                  className="mt-2.5 w-4 h-4 accent-[#6366f1] cursor-pointer shrink-0"
+                  checked={!!props.checked}
+                  onChange={(e) => updateBlock(idx, { props: JSON.stringify({ ...props, checked: e.target.checked }) })}
+                />
+              );
+            }
+
+            const blockNode = (
+              <div
+                key={block.id}
+                data-block-idx={idx}
+                className={['flex items-start gap-2 group relative', draggedIdx === idx ? 'opacity-50' : ''].join(' ')}
+                onDragOver={(e) => handleBlockDragOver(e, idx)}
+                onDrop={(e) => handleBlockDrop(e, idx)}
+              >
+                {dragOverIdx === idx && dragOverPos === 'before' && (
+                  <div className="absolute -top-0.5 left-6 right-2 h-0.5 bg-blue-500 rounded z-10 pointer-events-none" />
+                )}
+                <div
+                  className="mt-1 py-1 px-0.5 w-5 text-center text-gray-500 select-none shrink-0 cursor-grab active:cursor-grabbing rounded hover:bg-[#333]"
+                  draggable
+                  onDragStart={(e) => handleBlockDragStart(e, idx)}
+                  onDragEnd={handleBlockDragEnd}
+                  onClick={(e) => e.stopPropagation()}
+                  title="Drag to move"
+                >
+                  ⋮⋮
+                </div>
+                {leftIcon}
+                {block.type === 'toggle' ? (
                   <div className="flex-1">
                     {isActive ? (
                       <div
@@ -790,72 +892,7 @@ export function Editor({
                       </div>
                     )}
                   </div>
-                </div>
-              );
-            }
-
-            // Icon / checkbox for list types
-            let leftIcon: React.ReactNode = null;
-            if (block.type === 'bullet_list') leftIcon = <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">•</span>;
-            else if (block.type === 'numbered_list') leftIcon = <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">1.</span>;
-            else if (block.type === 'todo_list') {
-              leftIcon = (
-                <input
-                  type="checkbox"
-                  tabIndex={-1}
-                  className="mt-2.5 w-4 h-4 accent-[#6366f1] cursor-pointer shrink-0"
-                  checked={!!props.checked}
-                  onChange={(e) => updateBlock(idx, { props: JSON.stringify({ ...props, checked: e.target.checked }) })}
-                />
-              );
-            }
-
-            const handleBlockDragStart = (e: React.DragEvent, index: number) => {
-              e.dataTransfer.setData('text/plain', String(index));
-              e.dataTransfer.effectAllowed = 'move';
-            };
-            const handleBlockDragEnd = () => {
-              // no-op to ensure drag cleanup in WebView2
-            };
-
-            const handleBlockDragOver = (e: React.DragEvent) => {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = 'move';
-            };
-
-            const handleBlockDrop = (e: React.DragEvent, targetIdx: number) => {
-              e.preventDefault();
-              const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
-              if (isNaN(fromIdx) || fromIdx === targetIdx) return;
-              setBlocks((prev) => {
-                const next = [...prev];
-                const [moved] = next.splice(fromIdx, 1);
-                next.splice(targetIdx, 0, moved);
-                return next.map((b, i) => ({ ...b, sort_order: i }));
-              });
-              const newActive = activeIdx === fromIdx ? targetIdx : activeIdx;
-              setActiveIdx(newActive);
-            };
-
-            const blockNode = (
-              <div
-                key={block.id}
-                data-block-idx={idx}
-                className="flex items-start gap-2 group"
-                onDragOver={handleBlockDragOver}
-                onDrop={(e) => handleBlockDrop(e, idx)}
-              >
-                <div
-                  className="mt-1 py-1 px-0.5 w-5 text-center text-gray-500 select-none shrink-0 cursor-grab active:cursor-grabbing rounded hover:bg-[#333]"
-                  draggable
-                  onDragStart={(e) => handleBlockDragStart(e, idx)}
-                  onDragEnd={handleBlockDragEnd}
-                  title="Drag to move"
-                >
-                  ⋮⋮
-                </div>
-                {leftIcon}
-                {block.type === 'divider' ? (
+                ) : block.type === 'divider' ? (
                   <div className="flex-1 py-3">
                     <hr className="border-[#2f2f2f]" />
                   </div>
@@ -929,6 +966,9 @@ export function Editor({
                       </div>
                     )}
                   </div>
+                )}
+                {dragOverIdx === idx && dragOverPos === 'after' && (
+                  <div className="absolute -bottom-0.5 left-6 right-2 h-0.5 bg-blue-500 rounded z-10 pointer-events-none" />
                 )}
               </div>
             );
