@@ -87,7 +87,7 @@ echo [INFO] Copied %BACKEND_SRC% -^> %BACKEND_DST%
 echo.
 echo [5/5] Creating zip archive...
 set "OUT_DIR=%REPO_ROOT%\release\v%VERSION%"
-set "ZIP_PATH=%OUT_DIR%\ZenNote-portable-windows.zip"
+set "ZIP_PATH=%OUT_DIR%\ZenNote-%VERSION%-portable-windows.zip"
 if exist "%OUT_DIR%" rmdir /s /q "%OUT_DIR%"
 mkdir "%OUT_DIR%"
 
