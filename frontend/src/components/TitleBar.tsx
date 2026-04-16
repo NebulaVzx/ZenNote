@@ -1,12 +1,13 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Minus, Square, X, Settings } from 'lucide-react';
+import { Minus, Square, X, Settings, PanelLeft } from 'lucide-react';
 import { SyncStatus } from './SyncStatus';
 
 interface TitleBarProps {
   onSettings?: () => void;
+  onToggleSidebar?: () => void;
 }
 
-export function TitleBar({ onSettings }: TitleBarProps) {
+export function TitleBar({ onSettings, onToggleSidebar }: TitleBarProps) {
   let appWindow: ReturnType<typeof getCurrentWindow> | undefined;
   try {
     appWindow = getCurrentWindow();
@@ -25,6 +26,15 @@ export function TitleBar({ onSettings }: TitleBarProps) {
         <span className="text-xs text-gray-400">My Workspace</span>
       </div>
       <div className="flex items-center h-full">
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="h-full px-3 flex items-center justify-center hover:bg-[#2a2a2a] text-gray-400 hover:text-gray-200 transition-colors"
+            title="Toggle sidebar"
+          >
+            <PanelLeft size={16} />
+          </button>
+        )}
         <SyncStatus />
         {onSettings && (
           <button

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Heading1, Heading2, List, ListOrdered, CheckSquare, Code, SquareChevronDown, Minus, Type, Sparkles } from 'lucide-react';
+import { Heading1, Heading2, Heading3, List, ListOrdered, CheckSquare, Code, SquareChevronDown, Minus, Type, Sparkles, Quote } from 'lucide-react';
 import type { BlockType } from '../types';
 
 export interface SlashItem {
@@ -12,9 +12,11 @@ export interface SlashItem {
 const ITEMS: SlashItem[] = [
   { label: 'Heading 1', icon: <Heading1 size={16} />, type: 'heading', keywords: ['h1', 'heading'] },
   { label: 'Heading 2', icon: <Heading2 size={16} />, type: 'heading', keywords: ['h2'] },
+  { label: 'Heading 3', icon: <Heading3 size={16} />, type: 'heading', keywords: ['h3'] },
   { label: 'Bullet List', icon: <List size={16} />, type: 'bullet_list', keywords: ['list', 'ul'] },
   { label: 'Numbered List', icon: <ListOrdered size={16} />, type: 'numbered_list', keywords: ['num', 'ol', 'ordered'] },
   { label: 'To-do List', icon: <CheckSquare size={16} />, type: 'todo_list', keywords: ['todo', 'check'] },
+  { label: 'Quote', icon: <Quote size={16} />, type: 'quote', keywords: ['quote'] },
   { label: 'Code Block', icon: <Code size={16} />, type: 'code', keywords: ['code'] },
   { label: 'Toggle', icon: <SquareChevronDown size={16} />, type: 'toggle', keywords: ['toggle'] },
   { label: 'Divider', icon: <Minus size={16} />, type: 'divider', keywords: ['divider', 'hr'] },

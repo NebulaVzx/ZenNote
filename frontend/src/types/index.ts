@@ -28,6 +28,7 @@ export type BlockType =
   | 'todo_list'
   | 'code'
   | 'toggle'
+  | 'quote'
   | 'divider';
 
 export interface Tab {

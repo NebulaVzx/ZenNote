@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
+use std::path::PathBuf;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -17,6 +18,46 @@ fn greet(name: &str) -> String {
 }
 
 struct BackendProcess(Mutex<Option<Child>>);
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct WindowState {
+    width: u32,
+    height: u32,
+    x: i32,
+    y: i32,
+}
+
+fn window_state_path(app: &tauri::AppHandle) -> PathBuf {
+    let mut path = app.path().app_data_dir().unwrap_or_else(|_| std::env::temp_dir());
+    path.push("window-state.json");
+    path
+}
+
+fn load_window_state(app: &tauri::AppHandle) -> Option<WindowState> {
+    let path = window_state_path(app);
+    if !path.exists() {
+        return None;
+    }
+    let content = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+fn save_window_state(window: &tauri::Window) -> Result<(), Box<dyn std::error::Error>> {
+    let size = window.inner_size()?;
+    let pos = window.outer_position()?;
+    let state = WindowState {
+        width: size.width,
+        height: size.height,
+        x: pos.x,
+        y: pos.y,
+    };
+    let path = window_state_path(&window.app_handle());
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, serde_json::to_string_pretty(&state)?)?;
+    Ok(())
+}
 
 fn try_start_backend() -> Option<Child> {
     // Skip if a backend is already running (dev workflow)
@@ -62,6 +103,11 @@ pub fn run() {
                     if let Some(icon) = app.default_window_icon() {
                         let _ = window.set_icon(icon.clone());
                     }
+
+                    if let Some(state) = load_window_state(&app.handle()) {
+                        let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(state.width, state.height)));
+                        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(state.x, state.y)));
+                    }
                 }
             }
 
@@ -71,6 +117,8 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
+                let _ = save_window_state(&window);
+
                 if let Some(state) = window.app_handle().try_state::<BackendProcess>() {
                     if let Ok(mut child) = state.0.lock() {
                         if let Some(mut c) = child.take() {

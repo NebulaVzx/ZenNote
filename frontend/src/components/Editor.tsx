@@ -24,6 +24,7 @@ const PLACEHOLDERS: Record<BlockType, string> = {
   todo_list: 'To-do',
   code: '// Code here',
   toggle: 'Toggle',
+  quote: 'Quote',
   divider: '',
 };
 
@@ -320,6 +321,11 @@ export function Editor({
       setBlockText(idx, '');
       return true;
     }
+    if (text === '###') {
+      updateBlock(idx, { type: 'heading', content: '', props: JSON.stringify({ level: 3 }) });
+      setBlockText(idx, '');
+      return true;
+    }
     if (text === '-') {
       updateBlock(idx, { type: 'bullet_list', content: '' });
       setBlockText(idx, '');
@@ -336,7 +342,7 @@ export function Editor({
       return true;
     }
     if (text === '>') {
-      updateBlock(idx, { type: 'paragraph', content: '' });
+      updateBlock(idx, { type: 'quote', content: '' });
       setBlockText(idx, '');
       return true;
     }
@@ -613,6 +619,8 @@ export function Editor({
     switch (type) {
       case 'heading':
         return base + ' text-2xl font-semibold';
+      case 'quote':
+        return base + ' border-l-4 border-gray-500 pl-3 italic text-gray-300';
       case 'code':
         return 'hidden';
       case 'divider':
@@ -902,8 +910,8 @@ export function Editor({
                         contentEditable
                         suppressContentEditableWarning
                         data-placeholder={PLACEHOLDERS[block.type]}
-                        className={blockClass(block.type)}
-                        style={block.type === 'heading' && props.level === 2 ? { fontSize: '1.5rem' } : undefined}
+                        className={[blockClass(block.type), block.type === 'todo_list' && props.checked ? 'line-through text-gray-500' : ''].join(' ')}
+                        style={block.type === 'heading' && props.level === 2 ? { fontSize: '1.5rem' } : block.type === 'heading' && props.level === 3 ? { fontSize: '1.25rem' } : undefined}
                         onKeyDown={(e) => handleKeyDown(e, idx)}
                         onInput={() => handleInput(idx)}
                         onBlur={(e) => handleBlur(idx, e)}
@@ -913,8 +921,8 @@ export function Editor({
                       <div
                         ref={(el) => { blockRefs.current[idx] = el; }}
                         data-placeholder={PLACEHOLDERS[block.type]}
-                        className={[blockClass(block.type), 'cursor-text'].join(' ')}
-                        style={block.type === 'heading' && props.level === 2 ? { fontSize: '1.5rem' } : undefined}
+                        className={[blockClass(block.type), 'cursor-text', block.type === 'todo_list' && props.checked ? 'line-through text-gray-500' : ''].join(' ')}
+                        style={block.type === 'heading' && props.level === 2 ? { fontSize: '1.5rem' } : block.type === 'heading' && props.level === 3 ? { fontSize: '1.25rem' } : undefined}
                         onClick={() => activateBlock(idx)}
                       >
                         {renderSearchContent(block.content, searchCounter)}

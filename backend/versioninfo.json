@@ -3,13 +3,13 @@
     "FileVersion": {
       "Major": 0,
       "Minor": 2,
-      "Patch": 2,
+      "Patch": 3,
       "Build": 0
     },
     "ProductVersion": {
       "Major": 0,
       "Minor": 2,
-      "Patch": 2,
+      "Patch": 3,
       "Build": 0
     },
     "FileFlagsMask": "3f",
@@ -20,12 +20,12 @@
   },
   "StringFileInfo": {
     "FileDescription": "ZenNote Backend",
-    "FileVersion": "0.2.2.0",
+    "FileVersion": "0.2.3.0",
     "InternalName": "zennote-backend",
     "LegalCopyright": "Copyright (c) ZenNote",
     "OriginalFilename": "zennote-backend.exe",
     "ProductName": "ZenNote",
-    "ProductVersion": "0.2.2.0"
+    "ProductVersion": "0.2.3.0"
   },
   "VarFileInfo": {
     "Translation": {

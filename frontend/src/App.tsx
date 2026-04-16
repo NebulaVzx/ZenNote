@@ -19,6 +19,7 @@ function App() {
   const [pageSearchTotal, setPageSearchTotal] = useState(0);
   const [pageSearchCurrentIndex, setPageSearchCurrentIndex] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const pageMap = useRef<Record<string, Page>>({});
 
   // Load pages
@@ -166,18 +167,20 @@ function App() {
 
   return (
     <div className="flex flex-col h-full w-full bg-[#191919]">
-      <TitleBar onSettings={() => setSettingsOpen(true)} />
+      <TitleBar onSettings={() => setSettingsOpen(true)} onToggleSidebar={() => setSidebarOpen((v) => !v)} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          pages={pages}
-          activePageId={activePageId}
-          onSelectPage={(p) => openPage(p.id)}
-          onCreatePage={createPage}
-          onDeletePage={deletePage}
-          onDeletePages={deletePages}
-          onOpenSearch={() => setSearchOpen(true)}
-          onReorderPages={handleReorderPages}
-        />
+        {sidebarOpen && (
+          <Sidebar
+            pages={pages}
+            activePageId={activePageId}
+            onSelectPage={(p) => openPage(p.id)}
+            onCreatePage={createPage}
+            onDeletePage={deletePage}
+            onDeletePages={deletePages}
+            onOpenSearch={() => setSearchOpen(true)}
+            onReorderPages={handleReorderPages}
+          />
+        )}
         <div className="flex-1 flex flex-col min-w-0">
           <Tabs tabs={tabs} activePageId={activePageId} onSwitch={setActivePageId} onClose={closeTab} />
           {pageSearchOpen && (

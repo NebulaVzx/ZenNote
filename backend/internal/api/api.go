@@ -299,7 +299,7 @@ func search(c *gin.Context) {
 }
 
 func healthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.2.0"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.2.3"})
 }
 
 func generateID(prefix string) string {
