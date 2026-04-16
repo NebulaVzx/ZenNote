@@ -7,11 +7,9 @@
 
 ## 一、编辑器核心体验 (Editor)
 
-### 1. 代码块换行偏移 [BUG] 🔴
-- **现状**：在代码块中输入代码后按 Enter，光标位置出现在当前行与下一行之间，而非下一行行首
-- **对标**：Notion / VS Code 代码块换行体验
-- **难度**：M | **影响**：High
-- **建议**：排查 `react-simple-code-editor` 的 textarea 与 `<pre>` 高度同步逻辑，确保换行后 textarea 行高与高亮层一致
+### 1. 代码块换行偏移 [FIXED ✅]
+- **状态**：已修复。此前在代码块中按 Enter 后光标位置偏移，现已解决。
+- **修复位置**：`frontend/src/components/Editor.tsx` — 调整了 `react-simple-code-editor` 的 textarea 与 `<pre>` 的行高同步逻辑。
 
 ### 2. 块级拖拽不流畅 [BUG] 🔴
 - **现状**：编辑区和侧边栏的拖拽排序缺少视觉反馈，拖拽手柄 `⋮⋮` 在 WebView2 中偶现不响应
