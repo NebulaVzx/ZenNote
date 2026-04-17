@@ -42,6 +42,12 @@ function escapeRegExp(str: string) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function stripHtml(html: string): string {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || '';
+}
+
 export function Editor({
   pageId,
   title,
@@ -138,19 +144,26 @@ export function Editor({
   }, []);
 
   const getBlockText = (idx: number) => {
-  const el = blockRefs.current[idx];
-  if (!el) return '';
-  if (el.tagName === 'TEXTAREA') return (el as HTMLTextAreaElement).value;
-  return el.innerText || '';
-};
+    const el = blockRefs.current[idx];
+    if (!el) return '';
+    if (el.tagName === 'TEXTAREA') return (el as HTMLTextAreaElement).value;
+    return el.innerText || '';
+  };
+
+  const getBlockHTML = (idx: number) => {
+    const el = blockRefs.current[idx];
+    if (!el) return '';
+    if (el.tagName === 'TEXTAREA') return (el as HTMLTextAreaElement).value;
+    return el.innerHTML || '';
+  };
 
   const flushBlock = useCallback((idx: number) => {
-    const text = getBlockText(idx);
+    const html = getBlockHTML(idx);
     setBlocks((prev) => {
       if (!prev[idx]) return prev;
-      if (prev[idx].content === text) return prev;
+      if (prev[idx].content === html) return prev;
       const next = [...prev];
-      next[idx] = { ...next[idx], content: text, updated_at: Date.now() };
+      next[idx] = { ...next[idx], content: html, updated_at: Date.now() };
       return next;
     });
   }, []);
@@ -161,9 +174,9 @@ export function Editor({
       let changed = false;
       next.forEach((b, i) => {
         const el = blockRefs.current[i];
-        const text = el && el.tagName === 'TEXTAREA' ? (el as HTMLTextAreaElement).value : el?.innerText || '';
-        if (b.content !== text) {
-          next[i] = { ...b, content: text, updated_at: Date.now() };
+        const html = el && el.tagName === 'TEXTAREA' ? (el as HTMLTextAreaElement).value : el?.innerHTML || '';
+        if (b.content !== html) {
+          next[i] = { ...b, content: html, updated_at: Date.now() };
           changed = true;
         }
       });
@@ -178,8 +191,8 @@ export function Editor({
     saveTimer.current = window.setTimeout(() => {
       flushAllBlocks();
       const payload = blocks.map((b, i) => {
-        const text = blockRefs.current[i]?.innerText || '';
-        return { ...b, content: text };
+        const html = blockRefs.current[i]?.innerHTML || '';
+        return { ...b, content: html };
       });
       api.updateBlocks(pageId, payload).catch(console.error);
     }, 1500);
@@ -197,13 +210,61 @@ export function Editor({
     let count = 0;
     const q = searchQuery.toLowerCase();
     blocks.forEach((b, i) => {
-      const text = activeIdx === i ? getBlockText(i) : b.content;
+      const raw = activeIdx === i ? getBlockText(i) : b.content;
+      const text = stripHtml(raw);
       if (!text) return;
       const parts = text.toLowerCase().split(q);
       count += parts.length - 1;
     });
     onSearchMatchCountChange(count);
   }, [blocks, activeIdx, searchQuery, onSearchMatchCountChange]);
+
+  // DOM-level search highlight
+  useEffect(() => {
+    if (!editorRef.current) return;
+    // Clear previous highlights
+    editorRef.current.querySelectorAll('[data-search-highlight]').forEach((el) => {
+      const parent = el.parentNode!;
+      parent.insertBefore(document.createTextNode(el.textContent || ''), el);
+      parent.removeChild(el);
+      parent.normalize();
+    });
+
+    if (!searchQuery.trim()) return;
+
+    const q = searchQuery.toLowerCase();
+    let matchIdx = 0;
+    const walker = document.createTreeWalker(
+      editorRef.current,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+    const textNodes: Text[] = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+
+    for (const node of textNodes) {
+      const text = node.textContent || '';
+      const parts = text.split(new RegExp(`(${escapeRegExp(q)})`, 'gi'));
+      if (parts.length <= 1) continue;
+      const parent = node.parentNode!;
+      parts.forEach((part) => {
+        if (part.toLowerCase() === q) {
+          const span = document.createElement('span');
+          span.className = matchIdx === currentSearchIndex
+            ? 'bg-yellow-500 text-black font-medium rounded px-0.5'
+            : 'bg-yellow-600/60 text-white rounded px-0.5';
+          span.dataset.searchMatch = String(matchIdx);
+          span.dataset.searchHighlight = 'true';
+          span.textContent = part;
+          parent.insertBefore(span, node);
+          matchIdx++;
+        } else {
+          parent.insertBefore(document.createTextNode(part), node);
+        }
+      });
+      parent.removeChild(node);
+    }
+  }, [searchQuery, currentSearchIndex, blocks]);
 
   // Scroll to current search match
   useEffect(() => {
@@ -805,7 +866,7 @@ export function Editor({
 
   const setBlockText = (idx: number, text: string) => {
     const el = blockRefs.current[idx];
-    if (el) el.innerText = text;
+    if (el) el.innerHTML = text;
   };
 
   const activateBlock = (idx: number) => {
@@ -825,29 +886,7 @@ export function Editor({
     }, 0);
   };
 
-  const renderSearchContent = (text: string, baseCounter: { current: number }) => {
-    const q = searchQuery.trim();
-    if (!q) return text;
-    const parts = text.split(new RegExp(`(${escapeRegExp(q)})`, 'gi'));
-    return parts.map((part, i) => {
-      if (part.toLowerCase() === q.toLowerCase()) {
-        const idx = baseCounter.current++;
-        const isCurrent = idx === currentSearchIndex;
-        return (
-          <span
-            key={i}
-            className={`rounded px-0.5 ${isCurrent ? 'bg-yellow-500 text-black font-medium' : 'bg-yellow-600/60 text-white'}`}
-            data-search-match={idx}
-          >
-            {part}
-          </span>
-        );
-      }
-      return part;
-    });
-  };
-
-  // Initialize editable innerText when block type/id changes or first mounts
+  // Initialize editable content when block type/id changes or first mounts
   useLayoutEffect(() => {
     if (!loaded) return;
     blocks.forEach((b, i) => {
@@ -866,10 +905,10 @@ export function Editor({
       } else {
         if (activeIdx === i) {
           if (el.innerText === '' && b.content) {
-            el.innerText = b.content;
+            el.innerHTML = b.content;
           }
         } else {
-          el.innerText = b.content;
+          el.innerHTML = b.content;
         }
       }
     });
@@ -878,8 +917,6 @@ export function Editor({
   if (!loaded) {
     return <div className="flex-1 p-8 text-gray-500">Loading...</div>;
   }
-
-  const searchCounter = { current: 0 };
 
   return (
     <div ref={editorRef} className="flex-1 flex flex-col h-full overflow-y-auto relative" onMouseUp={handleMouseUp}>
@@ -1094,9 +1131,8 @@ export function Editor({
                         ref={(el) => { blockRefs.current[idx] = el; }}
                         className="py-1.5 px-1 text-gray-200 rounded hover:bg-[#1e1e1e] font-medium cursor-text"
                         onClick={() => activateBlock(idx)}
-                      >
-                        {renderSearchContent(block.content, searchCounter)}
-                      </div>
+                        dangerouslySetInnerHTML={{ __html: block.content }}
+                      />
                     )}
                     {props.expanded && (
                       <div className="pl-4 border-l-2 border-[#333] mt-1 text-gray-400 text-sm">
@@ -1173,9 +1209,8 @@ export function Editor({
                         className={[blockClass(block.type), 'cursor-text', block.type === 'todo_list' && props.checked ? 'line-through text-gray-500' : ''].join(' ')}
                         style={block.type === 'heading' && props.level === 2 ? { fontSize: '1.5rem' } : block.type === 'heading' && props.level === 3 ? { fontSize: '1.25rem' } : undefined}
                         onClick={() => activateBlock(idx)}
-                      >
-                        {renderSearchContent(block.content, searchCounter)}
-                      </div>
+                        dangerouslySetInnerHTML={{ __html: block.content }}
+                      />
                     )}
                   </div>
                 )}

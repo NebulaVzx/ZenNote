@@ -3,6 +3,12 @@ import { Search, FileText } from 'lucide-react';
 import { api } from '../api';
 import type { SearchResult } from '../types';
 
+function stripHtml(html: string): string {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || '';
+}
+
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -82,10 +88,9 @@ export function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
                 <FileText size={14} className="text-gray-400" />
                 <span className="font-medium">{r.page_title}</span>
               </div>
-              <div
-                className="mt-1 text-xs text-gray-400 line-clamp-2"
-                dangerouslySetInnerHTML={{ __html: r.highlights || r.content }}
-              />
+              <div className="mt-1 text-xs text-gray-400 line-clamp-2">
+                {stripHtml(r.highlights || r.content)}
+              </div>
             </button>
           ))}
         </div>

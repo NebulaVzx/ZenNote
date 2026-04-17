@@ -15,14 +15,9 @@
 - **状态**：v0.2.4 已修复。为编辑区和侧边栏的块/页面拖拽增加了透明 drag image、蓝色插入指示线、被拖拽块半透明反馈，并修复了 WebView2 中 `dragend` 先于 `drop` 导致的状态丢失问题。
 - **修复位置**：`frontend/src/components/Editor.tsx`、`frontend/src/components/Sidebar.tsx`
 
-### 3. 行内格式丢失
-- **现状**：`document.execCommand('bold')` 产生的 `<b>` 标签在切换 active/inactive 块时丢失，因为 `innerText` 不保留 HTML
-- **对标**：Notion / 语雀行内格式完全持久化
-- **难度**：XL | **影响**：High
-- **建议**：
-  - 方案 A：将 `content` 字段改为存储 innerHTML 而非 innerText
-  - 方案 B：引入轻量标记（类似 Markdown inline），渲染时转换
-  - 需要同步修改后端 FTS5 搜索逻辑（提取纯文本建索引）
+### 3. 行内格式丢失 [FIXED ✅]
+- **状态**：v0.2.8 已修复。`block.content` 改为存储 `innerHTML` 而非 `innerText`，切换 active/inactive 块时 `<b>`、`<i>`、`<strike>` 等格式标签不再丢失。搜索高亮改为 DOM 层面文本节点遍历，避免切到 HTML 标签。
+- **修复位置**：`frontend/src/components/Editor.tsx`、`frontend/src/components/SearchModal.tsx`
 
 ### 4. 图片 / 附件插入
 - **现状**：不支持任何图片或附件
