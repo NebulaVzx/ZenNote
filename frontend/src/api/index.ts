@@ -71,4 +71,9 @@ export const api = {
     fetchJSON<{ ok: boolean; message?: string }>(`/api/ai_configs/${id}/test`, { method: 'POST' }),
   generateAI: (payload: AIGenerateRequest) =>
     fetchJSON<{ content: string }>('/api/ai/generate', { method: 'POST', body: JSON.stringify(payload) }),
+  toggleFavorite: (id: string, isFavorite: number) =>
+    fetchJSON<{ ok: boolean }>(`/api/pages/${id}/favorite`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_favorite: isFavorite }),
+    }),
 };

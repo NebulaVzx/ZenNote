@@ -57,10 +57,16 @@ export function SyncStatus() {
     setBusy(false);
   };
 
+  const autoSyncEnabled = config?.auto_sync === 1;
+
   const statusText = config
     ? config.last_sync_at
-      ? 'Synced'
-      : 'Configured'
+      ? autoSyncEnabled
+        ? 'Auto-sync on'
+        : 'Synced'
+      : autoSyncEnabled
+        ? 'Auto-sync on'
+        : 'Configured'
     : 'Not configured';
 
   const lastSync = config?.last_sync_at

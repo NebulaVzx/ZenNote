@@ -26,6 +26,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.DELETE("/api/pages/:id/permanent", permanentDeletePage)
 	r.GET("/api/pages/:id/blocks", getBlocks)
 	r.PUT("/api/pages/:id/blocks", updateBlocks)
+	r.PUT("/api/pages/:id/favorite", toggleFavoritePage)
 	r.GET("/api/search", search)
 	r.GET("/api/health", healthCheck)
 	registerSyncRoutes(r)
@@ -34,7 +35,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 func listPages(c *gin.Context) {
 	rows, err := db.DB.Query(`
-		SELECT id, parent_id, title, icon, sort_order, created_at, updated_at, deleted_at
+		SELECT id, parent_id, title, icon, sort_order, is_favorite, created_at, updated_at, deleted_at
 		FROM pages WHERE deleted_at = 0 OR deleted_at IS NULL
 		ORDER BY sort_order ASC, created_at ASC`)
 	if err != nil {
@@ -49,7 +50,7 @@ func listPages(c *gin.Context) {
 		var parentID sql.NullString
 		var icon sql.NullString
 		var deletedAt sql.NullInt64
-		err := rows.Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
+		err := rows.Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.IsFavorite, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
 		if err != nil {
 			continue
 		}
@@ -99,8 +100,8 @@ func getPage(c *gin.Context) {
 	var parentID sql.NullString
 	var icon sql.NullString
 	var deletedAt sql.NullInt64
-	err := db.DB.QueryRow("SELECT id, parent_id, title, icon, sort_order, created_at, updated_at, deleted_at FROM pages WHERE id = ?", id).
-		Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
+	err := db.DB.QueryRow("SELECT id, parent_id, title, icon, sort_order, is_favorite, created_at, updated_at, deleted_at FROM pages WHERE id = ?", id).
+		Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.IsFavorite, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
@@ -196,7 +197,7 @@ func deletePage(c *gin.Context) {
 
 func listTrash(c *gin.Context) {
 	rows, err := db.DB.Query(`
-		SELECT id, parent_id, title, icon, sort_order, created_at, updated_at, deleted_at
+		SELECT id, parent_id, title, icon, sort_order, is_favorite, created_at, updated_at, deleted_at
 		FROM pages WHERE deleted_at > 0 ORDER BY deleted_at DESC`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -210,7 +211,7 @@ func listTrash(c *gin.Context) {
 		var parentID sql.NullString
 		var icon sql.NullString
 		var deletedAt sql.NullInt64
-		err := rows.Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
+		err := rows.Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.IsFavorite, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
 		if err != nil {
 			continue
 		}
@@ -330,7 +331,31 @@ func updateBlocks(c *gin.Context) {
 		}
 	}
 
+	_, err = tx.Exec("UPDATE pages SET updated_at = ? WHERE id = ?", now, pageID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func toggleFavoritePage(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		IsFavorite int `json:"is_favorite"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	now := time.Now().UnixMilli()
+	_, err := db.DB.Exec("UPDATE pages SET is_favorite = ?, updated_at = ? WHERE id = ?", req.IsFavorite, now, id)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -374,7 +399,7 @@ func search(c *gin.Context) {
 }
 
 func healthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.2.8"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.2.9"})
 }
 
 func generateID(prefix string) string {

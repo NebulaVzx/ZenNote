@@ -4,6 +4,7 @@ export interface Page {
   title: string;
   icon?: string;
   sort_order: number;
+  is_favorite?: number;
   created_at: number;
   updated_at: number;
   deleted_at?: number;

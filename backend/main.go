@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/NebulaVzx/ZenNote/backend/internal/api"
 	"github.com/NebulaVzx/ZenNote/backend/internal/db"
+	syncer "github.com/NebulaVzx/ZenNote/backend/internal/sync"
 	"github.com/gin-gonic/gin"
 )
 
@@ -51,8 +55,41 @@ func main() {
 	api.WorkspacePath = workspace
 	api.RegisterRoutes(r)
 
+	go startAutoSync(workspace)
+
 	fmt.Println("ZenNote backend listening on http://localhost:8080")
 	if err := r.Run(":8080"); err != nil {
 		panic(err)
+	}
+}
+
+func startAutoSync(workspace string) {
+	var mu sync.Mutex
+	for {
+		time.Sleep(30 * time.Second)
+		var autoSync, interval int
+		var lastSync int64
+		err := db.DB.QueryRow("SELECT auto_sync, sync_interval, last_sync_at FROM sync_configs WHERE workspace_id = 'default'").Scan(&autoSync, &interval, &lastSync)
+		if err != nil {
+			continue
+		}
+		if autoSync != 1 {
+			continue
+		}
+		if interval < 60 {
+			interval = 300
+		}
+		now := time.Now().Unix()
+		if now-lastSync < int64(interval) {
+			continue
+		}
+		mu.Lock()
+		s := syncer.NewSyncer("default", workspace)
+		if err := s.Upload(context.Background()); err != nil {
+			fmt.Printf("[auto-sync] upload failed: %v\n", err)
+		} else {
+			fmt.Println("[auto-sync] upload complete")
+		}
+		mu.Unlock()
 	}
 }

@@ -71,23 +71,17 @@
 - **状态**：v0.2.7 已实现。页面标题左侧和 Sidebar 均显示 `pages.icon`，点击标题旁图标可弹出 Emoji picker。
 - **修复位置**：`frontend/src/components/Editor.tsx`、`frontend/src/components/Sidebar.tsx`、`frontend/src/components/EmojiPicker.tsx`
 
-### 13. 页面收藏 / 快捷入口
-- **现状**：无
-- **对标**：Notion Favorites；语雀收藏夹；思源书签
-- **难度**：M | **影响**：Med
-- **建议**：`pages` 表加 `is_favorite INTEGER DEFAULT 0`，Sidebar 顶部渲染 Favorites 区域
+### 13. 页面收藏 / 快捷入口 [FIXED ✅]
+- **状态**：v0.2.9 已实现。`pages` 表新增 `is_favorite INTEGER DEFAULT 0`，Sidebar 顶部新增 Favorites 区域，右键菜单支持 Add/Remove favorites。
+- **修复位置**：`backend/internal/db/db.go`、`backend/internal/api/api.go`、`frontend/src/components/Sidebar.tsx`
 
-### 14. 页面最近编辑排序
-- **现状**：页面仅按 `sort_order` 排列
-- **对标**：Notion 可按最近编辑排序；语雀 "最近编辑" 列表
-- **难度**：S | **影响**：Med
-- **建议**：Sidebar 增加 "Recent" 视图，按 `updated_at DESC` 排列
+### 14. 页面最近编辑排序 [FIXED ✅]
+- **状态**：v0.2.9 已实现。Sidebar 新增 Tree / Recent 视图切换按钮，Recent 视图按 `updated_at DESC` 显示最近 15 个页面，含相对时间（"2m ago"）。
+- **修复位置**：`frontend/src/components/Sidebar.tsx`
 
-### 15. 右键菜单
-- **现状**：侧边栏无右键菜单，所有操作需 hover 显示小按钮
-- **对标**：Notion / 语雀 / 思源均有完整右键菜单
-- **难度**：M | **影响**：Med
-- **建议**：自定义 ContextMenu 组件，包含：New page、Rename、Delete、Duplicate、Add to favorites
+### 15. 右键菜单 [FIXED ✅]
+- **状态**：v0.2.9 已实现。Sidebar 页面树项右键弹出上下文菜单，支持 New page / Rename / Duplicate / Add to favorites / Delete。
+- **修复位置**：`frontend/src/components/Sidebar.tsx`
 
 ### 16. 工作区切换
 - **现状**：TitleBar 硬编码 "My Workspace"
@@ -119,11 +113,9 @@
 
 ## 四、同步与数据 (Sync)
 
-### 20. 自动同步定时器
-- **现状**：`auto_sync` 配置存在但后端无定时轮询
-- **对标**：Notion 实时同步；语雀定时同步
-- **难度**：M | **影响**：Med
-- **建议**：后端启动时若 `auto_sync=1`，启动 `time.Ticker` 定时执行 Upload
+### 20. 自动同步定时器 [FIXED ✅]
+- **状态**：v0.2.9 已实现。后端启动后台 goroutine，每 30 秒轮询 `sync_configs`，`auto_sync=1` 且间隔满足时自动执行 Upload。SyncStatus 组件显示 "Auto-sync on" 状态。
+- **修复位置**：`backend/main.go`、`frontend/src/components/SyncStatus.tsx`
 
 ### 21. 同步进度指示
 - **现状**：仅显示 "Upload complete" / "Download complete" 文字 toast
@@ -287,4 +279,4 @@
 
 ---
 
-> 文档生成时间：2026-04-17 | 当前版本：v0.2.7
+> 文档生成时间：2026-04-17 | 当前版本：v0.2.9

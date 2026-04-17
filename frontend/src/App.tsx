@@ -155,6 +155,14 @@ function App() {
     [refreshPages, closeTab, success]
   );
 
+  const toggleFavoritePage = useCallback(
+    async (pageId: string, isFavorite: number) => {
+      await api.toggleFavorite(pageId, isFavorite);
+      await refreshPages();
+    },
+    [refreshPages]
+  );
+
   const deletePages = useCallback(
     async (pageIds: string[]) => {
       for (const id of pageIds) {
@@ -241,6 +249,7 @@ function App() {
             onPermanentDeletePage={permanentDeletePage}
             onOpenSearch={() => setSearchOpen(true)}
             onReorderPages={handleReorderPages}
+            onToggleFavorite={toggleFavoritePage}
           />
         )}
         <div className="flex-1 flex flex-col min-w-0">

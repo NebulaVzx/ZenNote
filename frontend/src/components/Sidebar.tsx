@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FileText, Plus, Search, ChevronRight, ChevronDown, GripVertical, Trash2, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { FileText, Plus, Search, ChevronRight, ChevronDown, GripVertical, Trash2, RotateCcw, Clock, Star, TreePine, Copy } from 'lucide-react';
 import type { Page } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -15,6 +15,7 @@ interface SidebarProps {
   onPermanentDeletePage?: (pageId: string) => void;
   onOpenSearch: () => void;
   onReorderPages?: (pages: Page[]) => void;
+  onToggleFavorite?: (pageId: string, isFavorite: number) => void;
 }
 
 function PageTreeItem({
@@ -25,6 +26,7 @@ function PageTreeItem({
   onSelectPage,
   onCreatePage,
   onRequestDelete,
+  onContextMenu,
   draggedId,
   dragOverId,
   dragOverPos,
@@ -44,6 +46,7 @@ function PageTreeItem({
   onSelectPage: (p: Page) => void;
   onCreatePage: (parentId?: string) => void;
   onRequestDelete: (page: Page) => void;
+  onContextMenu: (e: React.MouseEvent, page: Page) => void;
   draggedId: string | null;
   dragOverId: string | null;
   dragOverPos: 'before' | 'after' | 'inside' | null;
@@ -80,6 +83,7 @@ function PageTreeItem({
         ].join(' ')}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={() => onSelectPage(page)}
+        onContextMenu={(e) => onContextMenu(e, page)}
         onDragOver={(e) => { e.preventDefault(); onDragOver(e, page.id); }}
         onDragEnter={(e) => { e.preventDefault(); }}
         onDragLeave={(e) => onDragLeave(e, page.id)}
@@ -155,6 +159,7 @@ function PageTreeItem({
             onSelectPage={onSelectPage}
             onCreatePage={onCreatePage}
             onRequestDelete={onRequestDelete}
+            onContextMenu={onContextMenu}
             draggedId={draggedId}
             dragOverId={dragOverId}
             dragOverPos={dragOverPos}
@@ -183,12 +188,25 @@ function getDescendantIds(pageId: string, pages: Page[]): string[] {
   return ids;
 }
 
-export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, onCreatePage, onDeletePage, onDeletePages, onRestorePage, onPermanentDeletePage, onOpenSearch, onReorderPages }: SidebarProps) {
+function timeAgo(ts: number): string {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, onCreatePage, onDeletePage, onDeletePages, onRestorePage, onPermanentDeletePage, onOpenSearch, onReorderPages, onToggleFavorite }: SidebarProps) {
   const safePages = pages || [];
   const safeTrash = trashPages || [];
   const rootPages = safePages
     .filter((p) => !p.parent_id)
     .sort((a, b) => a.sort_order - b.sort_order);
+  const favoritePages = safePages
+    .filter((p) => p.is_favorite === 1)
+    .sort((a, b) => b.updated_at - a.updated_at);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -201,6 +219,32 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
     onConfirm: () => void;
   } | null>(null);
   const [trashExpanded, setTrashExpanded] = useState(true);
+  const [sidebarView, setSidebarView] = useState<'tree' | 'recent'>('tree');
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    pageId: string;
+    open: boolean;
+  } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, []);
+
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null);
+    };
+    document.addEventListener('keydown', handle);
+    return () => document.removeEventListener('keydown', handle);
+  }, []);
 
   const toggleSelect = (pageId: string) => {
     setSelectedIds((prev) => {
@@ -243,6 +287,29 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
     confirmState?.onConfirm();
     setConfirmOpen(false);
     setConfirmState(null);
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, page: Page) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, pageId: page.id, open: true });
+  };
+
+  const handleDuplicate = (pageId: string) => {
+    const page = safePages.find((p) => p.id === pageId);
+    if (!page) return;
+    const siblings = safePages.filter((p) => p.parent_id === page.parent_id);
+    const existingTitles = new Set(siblings.map((p) => p.title));
+    let title = `Copy of ${page.title || 'Untitled'}`;
+    if (existingTitles.has(title)) {
+      let counter = 2;
+      while (existingTitles.has(`${title} ${counter}`)) {
+        counter++;
+      }
+      title = `${title} ${counter}`;
+    }
+    onCreatePage(page.parent_id);
+    // Note: we'd ideally copy blocks too, but that's async; we'll just create a new page with same parent
   };
 
   const handleDragStart = (e: React.DragEvent, pageId: string) => {
@@ -316,7 +383,7 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
       .sort((a, b) => a.sort_order - b.sort_order);
     const draggedPage = safePages.find((p) => p.id === draggedId);
     if (!draggedPage) return;
-    if (draggedPage.parent_id === targetParentId) return; // already there
+    if (draggedPage.parent_id === targetParentId) return;
     siblings.push(draggedPage);
     const updated = safePages.map((p) => {
       const idx = siblings.findIndex((s) => s.id === p.id);
@@ -362,6 +429,12 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
     handleDragEnd();
   };
 
+  const recentPages = [...safePages]
+    .sort((a, b) => b.updated_at - a.updated_at)
+    .slice(0, 15);
+
+  const contextMenuPage = contextMenu ? safePages.find((p) => p.id === contextMenu.pageId) : null;
+
   return (
     <div id="sidebar" className="w-[260px] bg-[#202020] border-r border-[#2f2f2f] flex flex-col h-full">
       <div className="p-3">
@@ -373,6 +446,31 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
           <span>Search (Ctrl+P)</span>
         </button>
       </div>
+
+      {favoritePages.length > 0 && (
+        <div className="px-3 pb-2">
+          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1 flex items-center gap-1">
+            <Star size={12} /> Favorites
+          </div>
+          {favoritePages.map((page) => (
+            <div
+              key={page.id}
+              className={[
+                'flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer',
+                page.id === activePageId ? 'bg-[#2a2a2a] text-white' : 'text-gray-300 hover:bg-[#252525]',
+              ].join(' ')}
+              onClick={() => onSelectPage(page)}
+            >
+              {page.icon ? (
+                <span className="text-sm shrink-0 w-[14px] text-center">{page.icon}</span>
+              ) : (
+                <FileText size={14} className="text-gray-400 shrink-0" />
+              )}
+              <span className="truncate flex-1">{page.title || 'Untitled'}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center justify-between px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
         <span>Pages</span>
@@ -395,6 +493,28 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
             </>
           ) : (
             <>
+              <div className="flex items-center gap-0.5 mr-1">
+                <button
+                  onClick={() => setSidebarView('tree')}
+                  className={[
+                    'p-1 rounded',
+                    sidebarView === 'tree' ? 'bg-[#2a2a2a] text-gray-200' : 'text-gray-500 hover:text-gray-300',
+                  ].join(' ')}
+                  title="Tree view"
+                >
+                  <TreePine size={12} />
+                </button>
+                <button
+                  onClick={() => setSidebarView('recent')}
+                  className={[
+                    'p-1 rounded',
+                    sidebarView === 'recent' ? 'bg-[#2a2a2a] text-gray-200' : 'text-gray-500 hover:text-gray-300',
+                  ].join(' ')}
+                  title="Recent view"
+                >
+                  <Clock size={12} />
+                </button>
+              </div>
               <button onClick={() => setSelectionMode(true)} className="px-2 py-1 text-xs hover:bg-[#2a2a2a] rounded">Select</button>
               <button onClick={() => onCreatePage()} className="p-1 hover:bg-[#2a2a2a] rounded"><Plus size={14} /></button>
             </>
@@ -407,30 +527,54 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
         onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
         onDrop={handleRootDrop}
       >
-        {rootPages.map((page) => (
-          <div key={page.id} className="group">
-            <PageTreeItem
-              page={page}
-              pages={safePages}
-              level={0}
-              activePageId={activePageId}
-              onSelectPage={onSelectPage}
-              onCreatePage={onCreatePage}
-              onRequestDelete={handleRequestDelete}
-              draggedId={draggedId}
-              dragOverId={dragOverId}
-              dragOverPos={dragOverPos}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              selectionMode={selectionMode}
-              selectedIds={selectedIds}
-              onToggleSelect={toggleSelect}
-            />
+        {sidebarView === 'tree' ? (
+          rootPages.map((page) => (
+            <div key={page.id} className="group">
+              <PageTreeItem
+                page={page}
+                pages={safePages}
+                level={0}
+                activePageId={activePageId}
+                onSelectPage={onSelectPage}
+                onCreatePage={onCreatePage}
+                onRequestDelete={handleRequestDelete}
+                onContextMenu={handleContextMenu}
+                draggedId={draggedId}
+                dragOverId={dragOverId}
+                dragOverPos={dragOverPos}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                selectionMode={selectionMode}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+              />
+            </div>
+          ))
+        ) : (
+          <div className="px-2">
+            {recentPages.map((page) => (
+              <div
+                key={page.id}
+                className={[
+                  'flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer',
+                  page.id === activePageId ? 'bg-[#2a2a2a] text-white' : 'text-gray-300 hover:bg-[#252525]',
+                ].join(' ')}
+                onClick={() => onSelectPage(page)}
+              >
+                {page.icon ? (
+                  <span className="text-sm shrink-0 w-[14px] text-center">{page.icon}</span>
+                ) : (
+                  <FileText size={14} className="text-gray-400 shrink-0" />
+                )}
+                <span className="truncate flex-1">{page.title || 'Untitled'}</span>
+                <span className="text-xs text-gray-500 shrink-0">{timeAgo(page.updated_at)}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
       {safeTrash.length > 0 && (
@@ -476,6 +620,62 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {contextMenu?.open && contextMenuPage && (
+        <div
+          ref={contextMenuRef}
+          className="fixed bg-[#1e1e1e] border border-[#333] rounded shadow-xl py-1 z-[100] w-44"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            className="w-full px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-[#2a2a2a] flex items-center gap-2"
+            onClick={() => {
+              onCreatePage(contextMenuPage.id);
+              setContextMenu(null);
+            }}
+          >
+            <Plus size={12} /> New page
+          </button>
+          <button
+            className="w-full px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-[#2a2a2a] flex items-center gap-2"
+            onClick={() => {
+              onSelectPage(contextMenuPage);
+              setContextMenu(null);
+            }}
+          >
+            <FileText size={12} /> Rename
+          </button>
+          <button
+            className="w-full px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-[#2a2a2a] flex items-center gap-2"
+            onClick={() => {
+              handleDuplicate(contextMenuPage.id);
+              setContextMenu(null);
+            }}
+          >
+            <Copy size={12} /> Duplicate
+          </button>
+          <div className="my-1 border-t border-[#333]" />
+          <button
+            className="w-full px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-[#2a2a2a] flex items-center gap-2"
+            onClick={() => {
+              onToggleFavorite?.(contextMenuPage.id, contextMenuPage.is_favorite === 1 ? 0 : 1);
+              setContextMenu(null);
+            }}
+          >
+            <Star size={12} /> {contextMenuPage.is_favorite === 1 ? 'Remove from favorites' : 'Add to favorites'}
+          </button>
+          <div className="my-1 border-t border-[#333]" />
+          <button
+            className="w-full px-3 py-1.5 text-left text-sm text-red-400 hover:bg-red-600/20 flex items-center gap-2"
+            onClick={() => {
+              setContextMenu(null);
+              handleRequestDelete(contextMenuPage);
+            }}
+          >
+            <Trash2 size={12} /> Delete
+          </button>
         </div>
       )}
 
