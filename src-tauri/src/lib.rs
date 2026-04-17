@@ -17,6 +17,20 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+#[tauri::command]
+fn restart_backend(state: tauri::State<BackendProcess>) -> Result<(), String> {
+    if let Ok(mut child) = state.0.lock() {
+        if let Some(mut c) = child.take() {
+            let _ = c.kill();
+        }
+    }
+    let new_child = try_start_backend();
+    if let Ok(mut child) = state.0.lock() {
+        *child = new_child;
+    }
+    Ok(())
+}
+
 struct BackendProcess(Mutex<Option<Child>>);
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -95,7 +109,7 @@ fn try_start_backend() -> Option<Child> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![greet, restart_backend])
         .setup(|app| {
             #[cfg(desktop)]
             {

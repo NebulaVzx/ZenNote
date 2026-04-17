@@ -9,7 +9,7 @@ export interface SlashItem {
   keywords: string[];
 }
 
-const ITEMS: SlashItem[] = [
+export const ITEMS: SlashItem[] = [
   { label: 'Heading 1', icon: <Heading1 size={16} />, type: 'heading', keywords: ['h1', 'heading'] },
   { label: 'Heading 2', icon: <Heading2 size={16} />, type: 'heading', keywords: ['h2'] },
   { label: 'Heading 3', icon: <Heading3 size={16} />, type: 'heading', keywords: ['h3'] },

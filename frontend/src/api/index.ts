@@ -23,10 +23,10 @@ export const api = {
       body: JSON.stringify({ title, parent_id: parentId }),
     }),
   getPage: (id: string) => fetchJSON<Page>(`/api/pages/${id}`),
-  updatePage: (id: string, title: string) =>
+  updatePage: (id: string, payload: { title?: string; icon?: string }) =>
     fetchJSON<{ ok: boolean }>(`/api/pages/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ title }),
+      body: JSON.stringify(payload),
     }),
   reorderPages: (pages: Page[]) =>
     fetchJSON<{ ok: boolean }>('/api/pages/reorder', {
@@ -35,6 +35,11 @@ export const api = {
     }),
   deletePage: (id: string) =>
     fetchJSON<{ ok: boolean }>(`/api/pages/${id}`, { method: 'DELETE' }),
+  listTrash: () => fetchJSON<Page[]>('/api/pages/trash'),
+  restorePage: (id: string) =>
+    fetchJSON<{ ok: boolean }>(`/api/pages/${id}/restore`, { method: 'PUT' }),
+  permanentDeletePage: (id: string) =>
+    fetchJSON<{ ok: boolean }>(`/api/pages/${id}/permanent`, { method: 'DELETE' }),
   getBlocks: (id: string) => fetchJSON<Block[]>(`/api/pages/${id}/blocks`),
   updateBlocks: (id: string, blocks: Block[]) =>
     fetchJSON<{ ok: boolean }>(`/api/pages/${id}/blocks`, {

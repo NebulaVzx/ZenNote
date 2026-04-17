@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { FileText, Plus, Search, ChevronRight, ChevronDown, GripVertical, Trash2 } from 'lucide-react';
+import { FileText, Plus, Search, ChevronRight, ChevronDown, GripVertical, Trash2, RotateCcw } from 'lucide-react';
 import type { Page } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 
 interface SidebarProps {
   pages: Page[];
+  trashPages?: Page[];
   activePageId?: string;
   onSelectPage: (page: Page) => void;
   onCreatePage: (parentId?: string) => void;
   onDeletePage: (pageId: string) => void;
   onDeletePages?: (pageIds: string[]) => void;
+  onRestorePage?: (pageId: string) => void;
+  onPermanentDeletePage?: (pageId: string) => void;
   onOpenSearch: () => void;
   onReorderPages?: (pages: Page[]) => void;
 }
@@ -112,7 +115,11 @@ function PageTreeItem({
         ) : (
           <span className="w-[18px]" />
         )}
-        <FileText size={14} className="text-gray-400 shrink-0" />
+        {page.icon ? (
+          <span className="text-sm shrink-0 w-[14px] text-center">{page.icon}</span>
+        ) : (
+          <FileText size={14} className="text-gray-400 shrink-0" />
+        )}
         <span className="truncate flex-1">{page.title || 'Untitled'}</span>
         {!selectionMode && (
           <>
@@ -176,8 +183,9 @@ function getDescendantIds(pageId: string, pages: Page[]): string[] {
   return ids;
 }
 
-export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDeletePage, onDeletePages, onOpenSearch, onReorderPages }: SidebarProps) {
+export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, onCreatePage, onDeletePage, onDeletePages, onRestorePage, onPermanentDeletePage, onOpenSearch, onReorderPages }: SidebarProps) {
   const safePages = pages || [];
+  const safeTrash = trashPages || [];
   const rootPages = safePages
     .filter((p) => !p.parent_id)
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -192,6 +200,7 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
     message: string;
     onConfirm: () => void;
   } | null>(null);
+  const [trashExpanded, setTrashExpanded] = useState(true);
 
   const toggleSelect = (pageId: string) => {
     setSelectedIds((prev) => {
@@ -423,6 +432,52 @@ export function Sidebar({ pages, activePageId, onSelectPage, onCreatePage, onDel
           </div>
         ))}
       </div>
+
+      {safeTrash.length > 0 && (
+        <div className="border-t border-[#2f2f2f]">
+          <button
+            onClick={() => setTrashExpanded((v) => !v)}
+            className="w-full flex items-center gap-2 px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide hover:bg-[#252525]"
+          >
+            {trashExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span>Trash ({safeTrash.length})</span>
+          </button>
+          {trashExpanded && (
+            <div className="py-1 px-2">
+              {safeTrash.map((page) => (
+                <div
+                  key={page.id}
+                  className="flex items-center gap-2 px-2 py-1.5 text-sm rounded mx-2 text-gray-400 hover:bg-[#252525]"
+                >
+                  <FileText size={14} className="text-gray-500 shrink-0" />
+                  <span className="truncate flex-1">{page.title || 'Untitled'}</span>
+                  <button
+                    onClick={() => onRestorePage?.(page.id)}
+                    className="p-1 hover:bg-[#333] rounded text-gray-400 hover:text-white"
+                    title="Restore"
+                  >
+                    <RotateCcw size={12} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setConfirmState({
+                        title: 'Delete forever',
+                        message: `Permanently delete "${page.title || 'Untitled'}"? This cannot be undone.`,
+                        onConfirm: () => onPermanentDeletePage?.(page.id),
+                      });
+                      setConfirmOpen(true);
+                    }}
+                    className="p-1 hover:bg-red-600/80 rounded text-gray-400 hover:text-white"
+                    title="Delete forever"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <ConfirmModal
         open={confirmOpen}

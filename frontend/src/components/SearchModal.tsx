@@ -6,7 +6,7 @@ import type { SearchResult } from '../types';
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (pageId: string) => void;
+  onSelect: (pageId: string, blockId: string) => void;
 }
 
 export function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
@@ -73,7 +73,7 @@ export function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
             <button
               key={idx}
               onClick={() => {
-                onSelect(r.page_id);
+                onSelect(r.page_id, r.block_id);
                 onClose();
               }}
               className="w-full text-left px-4 py-3 hover:bg-[#2a2a2a] border-b border-[#2a2a2a] last:border-0"

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { TitleBar } from './components/TitleBar';
 import { Sidebar } from './components/Sidebar';
 import { Tabs } from './components/Tabs';
@@ -13,6 +14,7 @@ import type { Page, Tab } from './types';
 
 function App() {
   const [pages, setPages] = useState<Page[]>([]);
+  const [trashPages, setTrashPages] = useState<Page[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activePageId, setActivePageId] = useState<string | undefined>();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -23,22 +25,41 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { success } = useToast();
+  const [backendOnline, setBackendOnline] = useState(true);
+  const [pendingBlockId, setPendingBlockId] = useState<string | null>(null);
+  const { success, error: showError } = useToast();
   const pageMap = useRef<Record<string, Page>>({});
 
   // Load pages
   const refreshPages = useCallback(() => {
-    return api.listPages().then((data) => {
+    return Promise.all([api.listPages(), api.listTrash()]).then(([data, trash]) => {
       const safeData = Array.isArray(data) ? data : [];
+      const safeTrash = Array.isArray(trash) ? trash : [];
       setPages(safeData);
+      setTrashPages(safeTrash);
       const map: Record<string, Page> = {};
       safeData.forEach((p) => (map[p.id] = p));
+      safeTrash.forEach((p) => (map[p.id] = p));
       pageMap.current = map;
     });
   }, []);
 
   useEffect(() => {
     refreshPages();
+  }, []);
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch('http://localhost:8080/api/health', { method: 'GET' });
+        setBackendOnline(res.ok);
+      } catch {
+        setBackendOnline(false);
+      }
+    };
+    checkHealth();
+    const id = setInterval(checkHealth, 3000);
+    return () => clearInterval(id);
   }, []);
 
   const openPage = useCallback((pageId: string) => {
@@ -89,9 +110,18 @@ function App() {
 
   const updatePageTitle = useCallback(
     async (pageId: string, title: string) => {
-      await api.updatePage(pageId, title);
+      await api.updatePage(pageId, { title });
       await refreshPages();
       setTabs((prev) => prev.map((t) => (t.pageId === pageId ? { ...t, title } : t)));
+    },
+    [refreshPages]
+  );
+
+  const updatePageIcon = useCallback(
+    async (pageId: string, icon: string) => {
+      const page = pageMap.current[pageId];
+      await api.updatePage(pageId, { title: page?.title || '', icon });
+      await refreshPages();
     },
     [refreshPages]
   );
@@ -101,7 +131,26 @@ function App() {
       await api.deletePage(pageId);
       await refreshPages();
       closeTab(pageId);
-      success('Page deleted');
+      success('Page moved to trash');
+    },
+    [refreshPages, closeTab, success]
+  );
+
+  const restorePage = useCallback(
+    async (pageId: string) => {
+      await api.restorePage(pageId);
+      await refreshPages();
+      success('Page restored');
+    },
+    [refreshPages, success]
+  );
+
+  const permanentDeletePage = useCallback(
+    async (pageId: string) => {
+      await api.permanentDeletePage(pageId);
+      await refreshPages();
+      closeTab(pageId);
+      success('Page permanently deleted');
     },
     [refreshPages, closeTab, success]
   );
@@ -182,11 +231,14 @@ function App() {
         {sidebarOpen && (
           <Sidebar
             pages={pages}
+            trashPages={trashPages}
             activePageId={activePageId}
             onSelectPage={(p) => openPage(p.id)}
             onCreatePage={createPage}
             onDeletePage={deletePage}
             onDeletePages={deletePages}
+            onRestorePage={restorePage}
+            onPermanentDeletePage={permanentDeletePage}
             onOpenSearch={() => setSearchOpen(true)}
             onReorderPages={handleReorderPages}
           />
@@ -209,11 +261,15 @@ function App() {
               <Editor
                 pageId={activePage.id}
                 title={activePage.title}
+                icon={activePage.icon}
                 onTitleChange={(t) => updatePageTitle(activePage.id, t)}
+                onIconChange={(icon) => updatePageIcon(activePage.id, icon)}
                 searchQuery={pageSearchQuery}
                 currentSearchIndex={pageSearchCurrentIndex}
                 onSearchMatchCountChange={setPageSearchTotal}
                 onEditorInput={() => setPageSearchQuery('')}
+                jumpToBlockId={pendingBlockId}
+                onJumpToBlockDone={() => setPendingBlockId(null)}
               />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
@@ -225,9 +281,30 @@ function App() {
           </div>
         </div>
       </div>
-      <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onSelect={(id) => openPage(id)} />
+      <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onSelect={(pageId, blockId) => { openPage(pageId); setPendingBlockId(blockId); }} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+      {!backendOnline && (
+        <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center">
+          <div className="bg-[#1e1e1e] border border-[#333] rounded-lg p-6 max-w-sm w-full text-center shadow-xl">
+            <div className="text-lg font-medium text-white mb-2">Backend Disconnected</div>
+            <div className="text-sm text-gray-400 mb-4">The local backend is not responding. Please restart it.</div>
+            <button
+              onClick={async () => {
+                try {
+                  await invoke('restart_backend');
+                } catch (e) {
+                  showError(String(e));
+                }
+              }}
+              className="px-4 py-2 bg-[#6366f1] hover:bg-[#4f52c4] text-white rounded text-sm font-medium"
+            >
+              Restart Backend
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

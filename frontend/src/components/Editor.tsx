@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { api } from '../api';
-import { SlashCommand, type SlashItem } from './SlashCommand';
+import { SlashCommand, ITEMS, type SlashItem } from './SlashCommand';
 import { AIActionPanel } from './AIActionPanel';
+import { EmojiPicker } from './EmojiPicker';
 import SimpleEditor from 'react-simple-code-editor';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
@@ -10,11 +11,15 @@ import type { Block, BlockType } from '../types';
 interface EditorProps {
   pageId: string;
   title: string;
+  icon?: string;
   onTitleChange: (title: string) => void;
+  onIconChange?: (icon: string) => void;
   searchQuery: string;
   currentSearchIndex: number;
   onSearchMatchCountChange: (count: number) => void;
   onEditorInput: () => void;
+  jumpToBlockId?: string | null;
+  onJumpToBlockDone?: () => void;
 }
 
 const PLACEHOLDERS: Record<BlockType, string> = {
@@ -40,11 +45,15 @@ function escapeRegExp(str: string) {
 export function Editor({
   pageId,
   title,
+  icon,
   onTitleChange,
+  onIconChange,
   searchQuery,
   currentSearchIndex,
   onSearchMatchCountChange,
   onEditorInput,
+  jumpToBlockId,
+  onJumpToBlockDone,
 }: EditorProps) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -78,6 +87,14 @@ export function Editor({
   const [aiPanelPos, setAiPanelPos] = useState({ left: 0, top: 0 });
   const [aiLoading, setAiLoading] = useState(false);
   const [aiGhost, setAiGhost] = useState<{ index: number; content: string } | null>(null);
+
+  // Block menu state
+  const [blockMenuOpen, setBlockMenuOpen] = useState(false);
+  const [blockMenuIdx, setBlockMenuIdx] = useState<number | null>(null);
+  const [blockMenuPos, setBlockMenuPos] = useState({ left: 0, top: 0 });
+
+  // Emoji picker state
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
 
   const createEmptyBlock = useCallback((): Block => {
     return {
@@ -196,6 +213,22 @@ export function Editor({
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [currentSearchIndex, searchQuery]);
+
+  // Jump to block from global search
+  useEffect(() => {
+    if (!loaded || !jumpToBlockId) return;
+    const idx = blocks.findIndex((b) => b.id === jumpToBlockId);
+    if (idx === -1) return;
+    const el = blockRefs.current[idx];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('bg-blue-500/20');
+      setTimeout(() => {
+        el.classList.remove('bg-blue-500/20');
+      }, 1500);
+    }
+    onJumpToBlockDone?.();
+  }, [loaded, jumpToBlockId, blocks, onJumpToBlockDone]);
 
   const insertBlock = (afterIdx: number, type: BlockType = 'paragraph') => {
     flushBlock(afterIdx);
@@ -316,6 +349,22 @@ export function Editor({
     setActiveIdx(targetIdx);
     setTimeout(() => {
       const el = blockRefs.current[targetIdx];
+      focusBlockEnd(el);
+    }, 0);
+  };
+
+  const duplicateBlock = (idx: number) => {
+    flushBlock(idx);
+    setBlocks((prev) => {
+      const next = [...prev];
+      const original = next[idx];
+      const copy: Block = { ...original, id: generateId('block'), created_at: Date.now(), updated_at: Date.now() };
+      next.splice(idx + 1, 0, copy);
+      return next.map((b, i) => ({ ...b, sort_order: i }));
+    });
+    setActiveIdx(idx + 1);
+    setTimeout(() => {
+      const el = blockRefs.current[idx + 1];
       focusBlockEnd(el);
     }, 0);
   };
@@ -876,30 +925,92 @@ export function Editor({
           <AIActionPanel open={aiPanelOpen} loading={aiLoading} onClose={() => setAiPanelOpen(false)} onAction={handleAIAction} />
         </div>
       )}
-      <div className="max-w-[800px] w-full mx-auto px-8 py-10">
-        <input
-          ref={titleRef}
-          value={localTitle}
-          onChange={(e) => setLocalTitle(e.target.value)}
-          onBlur={() => {
-            if (localTitle !== title) onTitleChange(localTitle);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
+      {blockMenuOpen && blockMenuIdx !== null && (
+        <div
+          className="absolute z-50 w-48 bg-[#252525] border border-[#333] rounded-md shadow-xl py-1"
+          style={{ left: blockMenuPos.left, top: blockMenuPos.top }}
+        >
+          <button
+            onClick={() => { removeBlock(blockMenuIdx); setBlockMenuOpen(false); }}
+            className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-[#333] flex items-center gap-2"
+          >
+            <span>🗑️</span> Delete
+          </button>
+          <button
+            onClick={() => { duplicateBlock(blockMenuIdx); setBlockMenuOpen(false); }}
+            className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-[#333] flex items-center gap-2"
+          >
+            <span>📄</span> Duplicate
+          </button>
+          <div className="h-px bg-[#333] my-1" />
+          <div className="px-3 py-1 text-xs text-gray-500">Turn into</div>
+          {ITEMS.filter((item) => item.label !== 'AI Assist').map((item) => (
+            <button
+              key={item.label}
+              onClick={() => {
+                setSlashIdx(blockMenuIdx);
+                handleSlashSelect(item);
+                setBlockMenuOpen(false);
+              }}
+              className="w-full text-left px-3 py-1.5 text-sm text-gray-200 hover:bg-[#333] flex items-center gap-2"
+            >
+              <span className="text-gray-400">{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="max-w-[800px] w-full mx-auto px-8 py-10" onClick={() => { if (blockMenuOpen) setBlockMenuOpen(false); if (emojiPickerOpen) setEmojiPickerOpen(false); }}>
+        <div className="flex items-start gap-3 mb-6">
+          <div className="relative">
+            <button
+              onClick={() => setEmojiPickerOpen((v) => !v)}
+              className="mt-2 text-3xl w-10 h-10 flex items-center justify-center hover:bg-[#252525] rounded transition-colors"
+              title="Choose icon"
+            >
+              {icon || '📄'}
+            </button>
+            {emojiPickerOpen && (
+              <div className="absolute left-0 top-12">
+                <EmojiPicker
+                  onSelect={(emoji) => onIconChange?.(emoji)}
+                  onClose={() => setEmojiPickerOpen(false)}
+                />
+              </div>
+            )}
+          </div>
+          <input
+            ref={titleRef}
+            value={localTitle}
+            onChange={(e) => setLocalTitle(e.target.value)}
+            onBlur={() => {
               if (localTitle !== title) onTitleChange(localTitle);
-              if (blocks.length > 0) {
-                activateBlock(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (localTitle !== title) onTitleChange(localTitle);
+                if (blocks.length > 0) {
+                  activateBlock(0);
+                }
               }
-            }
-          }}
-          placeholder="Untitled"
-          className="w-full bg-transparent text-4xl font-bold text-gray-100 placeholder-gray-600 outline-none mb-6"
-        />
+            }}
+            placeholder="Untitled"
+            className="flex-1 bg-transparent text-4xl font-bold text-gray-100 placeholder-gray-600 outline-none"
+          />
+        </div>
         <div className="space-y-1">
           {blocks.map((block, idx) => {
             const props = JSON.parse(block.props || '{}');
             const isActive = activeIdx === idx;
+
+            let listNumber = 1;
+            if (block.type === 'numbered_list') {
+              for (let i = idx - 1; i >= 0; i--) {
+                if (blocks[i].type === 'numbered_list') listNumber++;
+                else break;
+              }
+            }
 
             let leftIcon: React.ReactNode = null;
             if (block.type === 'toggle') {
@@ -909,7 +1020,7 @@ export function Editor({
                 </button>
               );
             } else if (block.type === 'bullet_list') leftIcon = <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">•</span>;
-            else if (block.type === 'numbered_list') leftIcon = <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">1.</span>;
+            else if (block.type === 'numbered_list') leftIcon = <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">{listNumber}.</span>;
             else if (block.type === 'todo_list') {
               leftIcon = (
                 <input
@@ -926,6 +1037,7 @@ export function Editor({
               <div
                 key={block.id}
                 data-block-idx={idx}
+                data-block-id={block.id}
                 className={['flex items-start gap-2 group relative', draggedIdx === idx ? 'opacity-50' : ''].join(' ')}
                 onDragOver={(e) => handleBlockDragOver(e, idx)}
                 onDrop={(e) => handleBlockDrop(e, idx)}
@@ -933,15 +1045,34 @@ export function Editor({
                 {dragOverIdx === idx && dragOverPos === 'before' && (
                   <div className="absolute -top-0.5 left-6 right-2 h-0.5 bg-blue-500 rounded z-10 pointer-events-none" />
                 )}
-                <div
-                  className="mt-1 py-1 px-0.5 w-5 text-center text-gray-500 select-none shrink-0 cursor-grab active:cursor-grabbing rounded hover:bg-[#333]"
-                  draggable
-                  onDragStart={(e) => handleBlockDragStart(e, idx)}
-                  onDragEnd={handleBlockDragEnd}
-                  onClick={(e) => e.stopPropagation()}
-                  title="Drag to move"
-                >
-                  ⋮⋮
+                <div className="relative flex flex-col items-center">
+                  <div
+                    className="mt-1 py-1 px-0.5 w-5 text-center text-gray-500 select-none shrink-0 cursor-grab active:cursor-grabbing rounded hover:bg-[#333]"
+                    draggable
+                    onDragStart={(e) => handleBlockDragStart(e, idx)}
+                    onDragEnd={handleBlockDragEnd}
+                    onClick={(e) => e.stopPropagation()}
+                    title="Drag to move"
+                  >
+                    ⋮⋮
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      const editorRect = editorRef.current?.getBoundingClientRect();
+                      setBlockMenuIdx(idx);
+                      setBlockMenuPos({
+                        left: rect.left - (editorRect?.left || 0),
+                        top: rect.bottom - (editorRect?.top || 0) + 4,
+                      });
+                      setBlockMenuOpen(true);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 text-[10px] text-gray-500 hover:text-gray-200 hover:bg-[#333] rounded leading-none"
+                    title="Block menu"
+                  >
+                    ⋯
+                  </button>
                 </div>
                 {leftIcon}
                 {block.type === 'toggle' ? (

@@ -36,6 +36,9 @@ func Init(workspacePath string) error {
 }
 
 func createTables() error {
+	// Migrate: add deleted_at to pages if missing
+	_, _ = DB.Exec("ALTER TABLE pages ADD COLUMN deleted_at INTEGER DEFAULT 0")
+
 	schema := `
 CREATE TABLE IF NOT EXISTS workspaces (
 	id TEXT PRIMARY KEY,
