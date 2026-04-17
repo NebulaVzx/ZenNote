@@ -6,6 +6,8 @@ import { Editor } from './components/Editor';
 import { SearchModal } from './components/SearchModal';
 import { PageSearch } from './components/PageSearch';
 import { SettingsModal } from './components/SettingsModal';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { useToast } from './components/ToastProvider';
 import { api } from './api';
 import type { Page, Tab } from './types';
 
@@ -19,7 +21,9 @@ function App() {
   const [pageSearchTotal, setPageSearchTotal] = useState(0);
   const [pageSearchCurrentIndex, setPageSearchCurrentIndex] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { success } = useToast();
   const pageMap = useRef<Record<string, Page>>({});
 
   // Load pages
@@ -97,8 +101,9 @@ function App() {
       await api.deletePage(pageId);
       await refreshPages();
       closeTab(pageId);
+      success('Page deleted');
     },
-    [refreshPages, closeTab]
+    [refreshPages, closeTab, success]
   );
 
   const deletePages = useCallback(
@@ -108,8 +113,9 @@ function App() {
         closeTab(id);
       }
       await refreshPages();
+      success(`${pageIds.length} pages deleted`);
     },
-    [refreshPages, closeTab]
+    [refreshPages, closeTab, success]
   );
 
   // Global shortcuts
@@ -122,6 +128,10 @@ function App() {
       if (e.ctrlKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         setPageSearchOpen(true);
+      }
+      if (e.ctrlKey && e.key === '/') {
+        e.preventDefault();
+        setShortcutsOpen(true);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -217,6 +227,7 @@ function App() {
       </div>
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onSelect={(id) => openPage(id)} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
 }

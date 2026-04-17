@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Cloud, CloudOff, Upload, Download, Loader2 } from 'lucide-react';
 import { api } from '../api';
+import { useToast } from './ToastProvider';
 import type { SyncConfig } from '../types';
 
 export function SyncStatus() {
   const [config, setConfig] = useState<SyncConfig | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState('');
+  const { success, error } = useToast();
   const ref = useRef<HTMLDivElement>(null);
 
   const refresh = () => {
@@ -35,13 +36,12 @@ export function SyncStatus() {
     setOpen(false);
     try {
       await api.triggerUpload();
-      setToast('Upload complete');
+      success('Upload complete');
       refresh();
     } catch (e: any) {
-      setToast(e.message || 'Upload failed');
+      error(e.message || 'Upload failed');
     }
     setBusy(false);
-    setTimeout(() => setToast(''), 3000);
   };
 
   const doDownload = async () => {
@@ -49,13 +49,12 @@ export function SyncStatus() {
     setOpen(false);
     try {
       await api.triggerDownload();
-      setToast('Download complete');
+      success('Download complete');
       refresh();
     } catch (e: any) {
-      setToast(e.message || 'Download failed');
+      error(e.message || 'Download failed');
     }
     setBusy(false);
-    setTimeout(() => setToast(''), 3000);
   };
 
   const statusText = config
@@ -102,11 +101,6 @@ export function SyncStatus() {
         </div>
       )}
 
-      {toast && (
-        <div className="fixed top-12 right-4 px-3 py-2 bg-[#2a2a2a] border border-[#444] rounded text-sm text-gray-200 shadow-lg z-[60]">
-          {toast}
-        </div>
-      )}
     </div>
   );
 }
