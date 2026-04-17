@@ -26,6 +26,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/search", search)
 	r.GET("/api/health", healthCheck)
 	registerSyncRoutes(r)
+	registerAIRoutes(r)
 }
 
 func listPages(c *gin.Context) {
@@ -299,7 +300,7 @@ func search(c *gin.Context) {
 }
 
 func healthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.2.5"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.2.6"})
 }
 
 func generateID(prefix string) string {

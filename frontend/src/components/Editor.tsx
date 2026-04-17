@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { api } from '../api';
 import { SlashCommand, type SlashItem } from './SlashCommand';
+import { AIActionPanel } from './AIActionPanel';
 import SimpleEditor from 'react-simple-code-editor';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
@@ -71,6 +72,12 @@ export function Editor({
   // Floating toolbar state
   const [toolbarVisible, setToolbarVisible] = useState(false);
   const [toolbarPos, setToolbarPos] = useState({ left: 0, top: 0 });
+
+  // AI panel state
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiPanelPos, setAiPanelPos] = useState({ left: 0, top: 0 });
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiGhost, setAiGhost] = useState<{ index: number; content: string } | null>(null);
 
   const createEmptyBlock = useCallback((): Block => {
     return {
@@ -387,6 +394,11 @@ export function Editor({
   const handleSlashSelect = (item: SlashItem) => {
     setSlashOpen(false);
     const idx = slashIdx;
+    if (item.label === 'AI Assist') {
+      setAiPanelPos(slashPos.current);
+      setAiPanelOpen(true);
+      return;
+    }
     if (item.type === 'divider') {
       updateBlock(idx, { type: 'divider', content: '' });
       setBlockText(idx, '');
@@ -417,6 +429,49 @@ export function Editor({
         el.focus();
         placeCaretAtEnd(el as HTMLDivElement);
       }
+    }, 0);
+  };
+
+  const handleAIAction = async (action: import('../types').AIAction, language?: string) => {
+    setAiLoading(true);
+    const idx = activeIdx ?? slashIdx;
+    const el = blockRefs.current[idx];
+    const blockText = el ? (el.tagName === 'TEXTAREA' ? (el as HTMLTextAreaElement).value : el.innerText || '') : '';
+    const selectedText = window.getSelection()?.toString() || '';
+    const prompt = selectedText || blockText;
+
+    try {
+      const res = await api.generateAI({ prompt, action, language });
+      setAiGhost({ index: idx, content: res.content });
+      setAiPanelOpen(false);
+    } catch (e: any) {
+      window.alert(e.message || 'AI generation failed');
+    }
+    setAiLoading(false);
+  };
+
+  const acceptAIGhost = () => {
+    if (!aiGhost) return;
+    const idx = aiGhost.index;
+    const paragraphs = aiGhost.content.split('\n\n').filter((p) => p.trim() !== '');
+    if (paragraphs.length === 0) {
+      setAiGhost(null);
+      return;
+    }
+    flushBlock(idx);
+    setBlocks((prev) => {
+      const next = [...prev];
+      paragraphs.forEach((content, i) => {
+        const nb = { ...createEmptyBlock(), type: 'paragraph' as BlockType, content };
+        next.splice(idx + 1 + i, 0, nb);
+      });
+      return next.map((b, i) => ({ ...b, sort_order: i }));
+    });
+    setActiveIdx(idx + paragraphs.length);
+    setAiGhost(null);
+    setTimeout(() => {
+      const el = blockRefs.current[idx + paragraphs.length];
+      focusBlockEnd(el);
     }, 0);
   };
 
@@ -793,6 +848,32 @@ export function Editor({
           <button onClick={() => applyInlineFormat('italic')} className="px-2 py-0.5 text-sm italic text-gray-200 hover:bg-[#333] rounded">I</button>
           <button onClick={() => applyInlineFormat('strikeThrough')} className="px-2 py-0.5 text-sm line-through text-gray-200 hover:bg-[#333] rounded">S</button>
           <button onClick={() => applyInlineFormat('removeFormat')} className="px-2 py-0.5 text-sm text-gray-400 hover:bg-[#333] rounded">✕</button>
+          <div className="w-px h-4 bg-[#444] mx-0.5" />
+          <button
+            onClick={() => {
+              const sel = window.getSelection();
+              setToolbarVisible(false);
+              if (sel && sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                const editorRect = editorRef.current?.getBoundingClientRect();
+                if (editorRect) {
+                  setAiPanelPos({ left: rect.left - editorRect.left + rect.width / 2 - 80, top: rect.top - editorRect.top - 50 });
+                }
+              }
+              setAiPanelOpen(true);
+            }}
+            className="px-2 py-0.5 text-sm text-gray-200 hover:bg-[#333] rounded flex items-center gap-1"
+            title="Ask AI"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+            AI
+          </button>
+        </div>
+      )}
+      {aiPanelOpen && (
+        <div style={{ left: aiPanelPos.left, top: aiPanelPos.top, position: 'absolute' }}>
+          <AIActionPanel open={aiPanelOpen} loading={aiLoading} onClose={() => setAiPanelOpen(false)} onAction={handleAIAction} />
         </div>
       )}
       <div className="max-w-[800px] w-full mx-auto px-8 py-10">
@@ -981,7 +1062,22 @@ export function Editor({
                 Click to add text
               </div>
             ) : null;
-            return clickToAdd ? [blockNode, clickToAdd] : blockNode;
+            const ghostBlock = (aiGhost && aiGhost.index === idx) ? (
+              <div key={`ghost-${block.id}`} className="flex items-start gap-2 relative my-1">
+                <div className="w-5 shrink-0" />
+                <div className="flex-1 px-3 py-2 bg-[#1e1e1e] border border-green-600/40 border-l-4 border-l-green-500 rounded text-gray-200 whitespace-pre-wrap">
+                  {aiGhost.content}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <button onClick={acceptAIGhost} className="px-2 py-1 text-xs bg-green-600 hover:bg-green-500 text-white rounded">Accept</button>
+                  <button onClick={() => setAiGhost(null)} className="px-2 py-1 text-xs bg-[#2a2a2a] hover:bg-[#333] text-gray-200 rounded">Reject</button>
+                </div>
+              </div>
+            ) : null;
+            const nodes: React.ReactNode[] = [blockNode];
+            if (ghostBlock) nodes.push(ghostBlock);
+            if (clickToAdd) nodes.push(clickToAdd);
+            return nodes;
           })}
         </div>
         <div className="h-32" />

@@ -108,6 +108,22 @@ CREATE VIRTUAL TABLE IF NOT EXISTS blocks_fts USING fts5(
 		updated_at INTEGER,
 		FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
 	);
+
+	CREATE TABLE IF NOT EXISTS ai_configs (
+		id TEXT PRIMARY KEY,
+		workspace_id TEXT NOT NULL,
+		name TEXT NOT NULL,
+		provider TEXT NOT NULL DEFAULT 'openai',
+		api_key TEXT NOT NULL,
+		base_url TEXT,
+		model TEXT NOT NULL,
+		temperature REAL DEFAULT 0.7,
+		max_tokens INTEGER DEFAULT 2048,
+		is_default INTEGER DEFAULT 0,
+		created_at INTEGER,
+		updated_at INTEGER,
+		FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
+	);
 `
 	_, err := DB.Exec(schema)
 	return err

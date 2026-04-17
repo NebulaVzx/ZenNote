@@ -1,4 +1,4 @@
-import type { Page, Block, SearchResult, SyncConfig } from '../types';
+import type { Page, Block, SearchResult, SyncConfig, AIConfig, AIGenerateRequest } from '../types';
 
 
 const BASE = 'http://localhost:8080';
@@ -55,4 +55,15 @@ export const api = {
     }),
   triggerUpload: () => fetchJSON<{ ok: boolean }>('/api/sync/upload', { method: 'POST' }),
   triggerDownload: () => fetchJSON<{ ok: boolean }>('/api/sync/download', { method: 'POST' }),
+  listAIConfigs: () => fetchJSON<AIConfig[]>('/api/ai_configs'),
+  createAIConfig: (payload: Partial<AIConfig>) =>
+    fetchJSON<{ id: string }>('/api/ai_configs', { method: 'POST', body: JSON.stringify(payload) }),
+  updateAIConfig: (id: string, payload: Partial<AIConfig>) =>
+    fetchJSON<{ ok: boolean }>(`/api/ai_configs/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteAIConfig: (id: string) =>
+    fetchJSON<{ ok: boolean }>(`/api/ai_configs/${id}`, { method: 'DELETE' }),
+  testAIConfig: (id: string) =>
+    fetchJSON<{ ok: boolean; message?: string }>(`/api/ai_configs/${id}/test`, { method: 'POST' }),
+  generateAI: (payload: AIGenerateRequest) =>
+    fetchJSON<{ content: string }>('/api/ai/generate', { method: 'POST', body: JSON.stringify(payload) }),
 };

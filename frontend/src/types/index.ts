@@ -60,3 +60,27 @@ export interface SyncConfig {
   created_at: number;
   updated_at: number;
 }
+
+export interface AIConfig {
+  id: string;
+  workspace_id: string;
+  name: string;
+  provider: string;
+  api_key: string;
+  base_url: string;
+  model: string;
+  temperature: number;
+  max_tokens: number;
+  is_default: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export type AIAction = 'continue' | 'polish' | 'translate' | 'explain';
+
+export interface AIGenerateRequest {
+  prompt: string;
+  action: AIAction;
+  language?: string;
+  config_id?: string;
+}
