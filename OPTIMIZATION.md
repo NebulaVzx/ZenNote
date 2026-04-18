@@ -91,17 +91,13 @@
 - **状态**：v0.2.7 已实现。全局搜索点击结果后 Editor 滚动到对应 block 并高亮 1.5 秒。
 - **修复位置**：`frontend/src/components/SearchModal.tsx`、`frontend/src/components/Editor.tsx`、`frontend/src/App.tsx`
 
-### 18. 搜索历史 / 最近搜索
-- **现状**：无
-- **对标**：Notion / 语雀搜索弹窗显示最近搜索
-- **难度**：S | **影响**：Low
-- **建议**：localStorage 存最近 10 条搜索词，搜索弹窗空状态时显示
+### 18. 搜索历史 / 最近搜索 [FIXED ✅]
+- **状态**：v0.3.5 已实现。`localStorage` 存储最近 10 条搜索词（`zennote.searchHistory`），SearchModal 空状态时显示历史列表，支持点击重新搜索、单独删除、清除全部。
+- **修复位置**：`frontend/src/components/SearchModal.tsx`
 
-### 19. 替换功能
-- **现状**：Ctrl+F 仅搜索，无替换
-- **对标**：语雀 Ctrl+H 替换；VS Code 标准搜索替换
-- **难度**：M | **影响**：Low
-- **建议**：PageSearch 组件增加替换输入框 + Replace/Replace All 按钮
+### 19. 替换功能 [FIXED ✅]
+- **状态**：v0.3.5 已实现。`Ctrl+H` 呼出替换栏，PageSearch 组件新增 "替换为..." 输入框 + "替换" / "全部替换" 按钮。Editor 内部实现 `replaceInBlocks`，通过正则匹配替换 block.content，支持单条替换和全部替换。
+- **修复位置**：`frontend/src/components/PageSearch.tsx`、`frontend/src/components/Editor.tsx`、`frontend/src/App.tsx`
 
 ---
 
@@ -135,11 +131,9 @@
 - **状态**：v0.3.5 已实现。`SkeletonScreen` 组件替代 "Loading..." 文字，包含标题、段落行、Heading、代码块的脉冲动画占位。
 - **修复位置**：`frontend/src/components/SkeletonScreen.tsx`、`frontend/src/components/Editor.tsx`
 
-### 24. 空状态引导
-- **现状**：欢迎页仅有 `📝` + 文字
-- **对标**：Notion 首次使用有模板选择引导
-- **难度**：M | **影响**：Med
-- **建议**：首次启动显示模板选择（空白页 / 日记 / 读书笔记 / 会议记录），模板即预设 block 结构
+### 24. 空状态引导 [FIXED ✅]
+- **状态**：v0.3.5 已实现。首次启动检测 `localStorage.getItem('zennote.hasLaunched')`，未设置则展示 `WelcomeScreen` 模板选择界面，含 4 个模板卡片（空白页 / 日记 / 读书笔记 / 会议记录）。选择后自动创建页面并写入预设 blocks。
+- **修复位置**：`frontend/src/components/WelcomeScreen.tsx`、`frontend/src/App.tsx`
 
 ### 25. 快捷键提示面板 [FIXED ✅]
 - **状态**：v0.2.5 已实现。`Ctrl+/` 呼出全局快捷键帮助面板，分类展示所有快捷键。
@@ -175,13 +169,9 @@
 - **状态**：v0.2.7 已实现。`pages.deleted_at` 软删除，Sidebar 底部新增 Trash 入口，支持 Restore / Permanent Delete。
 - **修复位置**：`backend/internal/db/db.go`、`backend/internal/api/api.go`、`frontend/src/components/Sidebar.tsx`、`frontend/src/App.tsx`
 
-### 32. 本地备份 / 版本历史
-- **现状**：无版本历史
-- **对标**：Notion Page History；语雀历史版本；思源数据快照
-- **难度**：L | **影响**：Med
-- **建议**：
-  - 简化方案：每次保存时将 blocks JSON 快照到 `page_snapshots` 表
-  - 保留最近 50 个版本，Settings 中可查看/恢复
+### 32. 本地备份 / 版本历史 [FIXED ✅]
+- **状态**：v0.3.5 已实现。每次保存 blocks 时自动创建 snapshot（`page_snapshots` 表保留最近 50 个版本）。SettingsModal 新增 History 标签页，展示快照列表（时间 + 块数量），支持恢复到任意版本。恢复后自动刷新页面。
+- **修复位置**：`backend/internal/db/db.go`、`backend/internal/api/api.go`、`frontend/src/components/SettingsModal.tsx`
 
 ### 33. 冲突解决 UI
 - **现状**：LWW 自动解决冲突，用户无感知
@@ -244,11 +234,15 @@
 3. **骨架屏** (#23) — v0.3.5 已完成。CSS 脉冲动画骨架屏替代 "Loading..."。
 4. **悬浮大纲** — v0.3.5 已完成。右侧 heading 目录树 + IntersectionObserver 滚动联动。
 
-### P2 — 中期规划 (功能完善)
-4. **版本历史** (#32) — L 级。数据安全底线功能，每保存 snapshot 到 `page_snapshots` 表。
-5. **空状态引导** (#24) — M 级。首次启动展示模板选择（空白页 / 日记 / 读书笔记 / 会议记录），降低上手门槛。
-6. **替换功能** (#19) — M 级。`Ctrl+H` 页面内搜索替换，对标 VS Code 标准体验。
-7. **搜索历史** (#18) — S 级。localStorage 存最近 10 条，空状态展示。投入极小。
+> **P2 已全部完成 ✅** (v0.3.6)
+> - **搜索历史** (#18) — v0.3.5 已完成
+> - **空状态引导** (#24) — v0.3.5 已完成
+> - **替换功能** (#19) — v0.3.5 已完成
+> - **版本历史** (#32) — v0.3.5 已完成
+> - **暗亮主题** (#28) — v0.3.6 已完成
+> - **防抖保存优化** (#35) — v0.3.6 已完成
+
+### P2 — 剩余未开始
 8. **其他格式导出** (#22b) — L 级。Markdown 已支持，后续 PDF / HTML / ZIP。
 
 ### P3 — 远期规划 (差异化)
