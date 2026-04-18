@@ -8,6 +8,8 @@ import SimpleEditor from 'react-simple-code-editor';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
 import { generateMarkdown } from '../utils/markdown';
+import { SkeletonScreen } from './SkeletonScreen';
+import { OutlinePanel } from './OutlinePanel';
 import type { Block, BlockType } from '../types';
 
 interface EditorProps {
@@ -931,16 +933,17 @@ export function Editor({
   }, [blocks, loaded, activeIdx]);
 
   if (!loaded) {
-    return <div className="flex-1 p-8 text-gray-500">Loading...</div>;
+    return <SkeletonScreen />;
   }
 
   return (
-    <div ref={editorRef} className="flex-1 flex flex-col h-full overflow-y-auto relative" onMouseUp={handleMouseUp}>
-      {slashOpen && (
-        <div style={{ left: slashPos.current.left, top: slashPos.current.top, position: 'absolute' }}>
-          <SlashCommand query={slashQuery} onSelect={handleSlashSelect} onClose={() => setSlashOpen(false)} />
-        </div>
-      )}
+    <div className="flex-1 flex flex-row h-full overflow-hidden">
+      <div ref={editorRef} className="flex-1 flex flex-col h-full overflow-y-auto relative" onMouseUp={handleMouseUp}>
+        {slashOpen && (
+          <div style={{ left: slashPos.current.left, top: slashPos.current.top, position: 'absolute' }}>
+            <SlashCommand query={slashQuery} onSelect={handleSlashSelect} onClose={() => setSlashOpen(false)} />
+          </div>
+        )}
       {toolbarVisible && (
         <div
           style={{ left: toolbarPos.left, top: toolbarPos.top, position: 'absolute' }}
@@ -1089,6 +1092,7 @@ export function Editor({
             const blockNode = (
               <div
                 key={block.id}
+                id={block.id}
                 data-block-idx={idx}
                 data-block-id={block.id}
                 className={['flex items-start gap-2 group relative', draggedIdx === idx ? 'opacity-50' : ''].join(' ')}
@@ -1279,6 +1283,8 @@ export function Editor({
         </div>
         <div className="h-32" />
       </div>
+      </div>
+      <OutlinePanel blocks={blocks} containerRef={editorRef} />
     </div>
   );
 }
