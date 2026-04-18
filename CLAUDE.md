@@ -33,12 +33,13 @@ src-tauri/             # Tauri Rust shell
 - **Database**: Use `sql.NullString` for nullable text fields. Migration-style schema init in `db.go`.
 - **Naming**: Go files snake_case, React components PascalCase, hooks camelCase starting with `use`.
 
-## Current Phase (Phase 3)
-Focus: AI-assisted writing.
-1. AI config panel (SettingsModal new tab + `ai_configs` table + CRUD API).
-2. `/ai` slash command in Editor for continuations.
-3. "Ask AI" floating toolbar on text selection (polish / translate / explain).
-4. Diff / accept-reject UI for AI-generated content.
+## Current Phase
+Phase 3 AI-assisted writing (v0.2.6) 已完成。v0.3.0 新增 Markdown 互操作 + 图片插入。
+
+接下来的主要方向：
+1. **AI 增强** — 流式输出、更多 action（摘要 / 改写语气 / 代码生成）
+2. **编辑器体验** — Undo/Redo、表格块、代码块语法高亮
+3. **P2 完善** — 骨架屏、空状态引导、版本历史
 
 ## Key Files
 - `backend/internal/api/api.go` — add new HTTP routes here.
@@ -46,6 +47,9 @@ Focus: AI-assisted writing.
 - `frontend/src/components/Editor.tsx` — block editor core.
 - `frontend/src/components/SettingsModal.tsx` — settings UI.
 - `frontend/src/api/index.ts` — frontend API client.
+- `frontend/src/utils/markdown.ts` — Markdown ↔ Blocks parser & generator.
+- `frontend/src/components/TitleBar.tsx` — File menu (open/export Markdown).
+- `src-tauri/src/lib.rs` — Tauri commands (file dialogs, image asset copy).
 
 ## Instructions for Claude
 - **Do not** explore `node_modules/` or `src-tauri/target/`.
