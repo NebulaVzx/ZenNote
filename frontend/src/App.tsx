@@ -34,7 +34,10 @@ function App() {
 
   // Load pages
   const refreshPages = useCallback(() => {
-    return Promise.all([api.listPages(), api.listTrash()]).then(([data, trash]) => {
+    return Promise.all([
+      api.listPages().catch(() => [] as Page[]),
+      api.listTrash().catch(() => [] as Page[]),
+    ]).then(([data, trash]) => {
       const safeData = Array.isArray(data) ? data : [];
       const safeTrash = Array.isArray(trash) ? trash : [];
       setPages(safeData);
