@@ -8,6 +8,7 @@ import { SearchModal } from './components/SearchModal';
 import { PageSearch } from './components/PageSearch';
 import { SettingsModal } from './components/SettingsModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { WelcomeScreen, createTemplateBlocks } from './components/WelcomeScreen';
 import { useToast } from './components/ToastProvider';
 import { api } from './api';
 import { parseMarkdown, generateMarkdown } from './utils/markdown';
@@ -27,6 +28,13 @@ function App() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [pendingBlockId, setPendingBlockId] = useState<string | null>(null);
+  const [hasLaunched, setHasLaunched] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('zennote.hasLaunched') === 'true';
+    } catch {
+      return true;
+    }
+  });
   const { success, error: showError } = useToast();
   const pageMap = useRef<Record<string, Page>>({});
 
@@ -369,11 +377,29 @@ function App() {
                 jumpToBlockId={pendingBlockId}
                 onJumpToBlockDone={() => setPendingBlockId(null)}
               />
+            ) : !hasLaunched ? (
+              <WelcomeScreen
+                onSelectTemplate={async (templateKey) => {
+                  const pageId = await createPage(undefined, '未命名页面');
+                  if (pageId) {
+                    const blocks = createTemplateBlocks(templateKey, pageId);
+                    await api.updateBlocks(pageId, blocks.map((b, i) => ({ ...b, sort_order: i })));
+                    await refreshPages();
+                    openPage(pageId);
+                  }
+                  localStorage.setItem('zennote.hasLaunched', 'true');
+                  setHasLaunched(true);
+                }}
+                onSkip={() => {
+                  localStorage.setItem('zennote.hasLaunched', 'true');
+                  setHasLaunched(true);
+                }}
+              />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
                 <div className="text-6xl mb-4">📝</div>
-                <div className="text-lg font-medium">Welcome to ZenNote</div>
-                <div className="text-sm mt-1">Select a page or press Ctrl+P to search</div>
+                <div className="text-lg font-medium">欢迎使用 ZenNote</div>
+                <div className="text-sm mt-1">选择一个页面或按 Ctrl+P 搜索</div>
               </div>
             )}
           </div>
