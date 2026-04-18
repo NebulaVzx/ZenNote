@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react';
-import { X, Cloud, Sparkles, Trash2, Edit2, Plus } from 'lucide-react';
+import { X, Cloud, Sparkles, Trash2, Edit2, Plus, History } from 'lucide-react';
 import { api } from '../api';
 import type { SyncConfig, AIConfig } from '../types';
 
-type TabKey = 'sync' | 'ai';
+type TabKey = 'sync' | 'ai' | 'history';
+
+interface Snapshot {
+  id: string;
+  page_id: string;
+  blocks_json: string;
+  created_at: number;
+}
 
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+  activePageId?: string;
 }
 
 const emptyAIConfig: Partial<AIConfig> = {
@@ -21,7 +29,7 @@ const emptyAIConfig: Partial<AIConfig> = {
   is_default: 0,
 };
 
-export function SettingsModal({ open, onClose }: SettingsModalProps) {
+export function SettingsModal({ open, onClose, activePageId }: SettingsModalProps) {
   const [tab, setTab] = useState<TabKey>('sync');
 
   // Sync tab state
@@ -49,6 +57,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [aiTestMsg, setAiTestMsg] = useState('');
   const [aiSaveMsg, setAiSaveMsg] = useState('');
 
+  // History tab state
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     // Load sync config
@@ -64,7 +76,17 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     setAiDraft(emptyAIConfig);
     setAiTestMsg('');
     setAiSaveMsg('');
-  }, [open]);
+    // Load snapshots
+    if (activePageId) {
+      setHistoryLoading(true);
+      api.listSnapshots(activePageId)
+        .then(setSnapshots)
+        .catch(() => setSnapshots([]))
+        .finally(() => setHistoryLoading(false));
+    } else {
+      setSnapshots([]);
+    }
+  }, [open, activePageId]);
 
   const refreshAIConfigs = () => {
     api.listAIConfigs().then(setAiConfigs).catch(() => setAiConfigs([]));
@@ -156,8 +178,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       <div className="w-full max-w-md bg-[#1e1e1e] rounded-lg border border-[#333] shadow-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-gray-200">
-            {tab === 'sync' ? <Cloud size={18} className="text-gray-400" /> : <Sparkles size={18} className="text-gray-400" />}
-            <h2 className="text-base font-medium">{tab === 'sync' ? 'Cloud Sync Settings' : 'AI Settings'}</h2>
+            {tab === 'sync' && <Cloud size={18} className="text-gray-400" />}
+            {tab === 'ai' && <Sparkles size={18} className="text-gray-400" />}
+            {tab === 'history' && <History size={18} className="text-gray-400" />}
+            <h2 className="text-base font-medium">
+              {tab === 'sync' ? 'Cloud Sync Settings' : tab === 'ai' ? 'AI Settings' : 'Version History'}
+            </h2>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
             <X size={18} />
@@ -176,6 +202,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             className={`text-sm pb-1 ${tab === 'ai' ? 'text-blue-500 border-b border-blue-500' : 'text-gray-400 hover:text-gray-200'}`}
           >
             AI Config
+          </button>
+          <button
+            onClick={() => setTab('history')}
+            className={`text-sm pb-1 ${tab === 'history' ? 'text-blue-500 border-b border-blue-500' : 'text-gray-400 hover:text-gray-200'}`}
+          >
+            History
           </button>
         </div>
 
@@ -472,7 +504,60 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           </>
         )}
 
-        <div className="mt-4 text-center text-xs text-gray-500">ZenNote v0.3.4</div>
+        {tab === 'history' && (
+          <>
+            <div className="max-h-[70vh] overflow-y-auto pr-1">
+              {!activePageId ? (
+                <div className="text-sm text-gray-500 text-center py-4">请先打开一个页面以查看版本历史</div>
+              ) : historyLoading ? (
+                <div className="text-sm text-gray-500 text-center py-4">加载中...</div>
+              ) : snapshots.length === 0 ? (
+                <div className="text-sm text-gray-500 text-center py-4">暂无快照。每次保存时会自动创建版本快照。</div>
+              ) : (
+                <div className="space-y-2">
+                  {snapshots.map((s) => {
+                    const date = new Date(s.created_at);
+                    const dateStr = date.toLocaleString('zh-CN');
+                    let blockCount = 0;
+                    try {
+                      const parsed = JSON.parse(s.blocks_json);
+                      if (Array.isArray(parsed)) blockCount = parsed.length;
+                    } catch {}
+                    return (
+                      <div
+                        key={s.id}
+                        className="flex items-center justify-between px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm text-gray-200">{dateStr}</div>
+                          <div className="text-xs text-gray-500">{blockCount} 个块</div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (!confirm('确定要恢复到这个版本吗？当前内容将被覆盖。')) return;
+                            try {
+                              await api.restoreSnapshot(activePageId, s.id);
+                              alert('已恢复');
+                              onClose();
+                              window.location.reload();
+                            } catch (e: any) {
+                              alert(e.message || '恢复失败');
+                            }
+                          }}
+                          className="px-3 py-1 text-xs rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30"
+                        >
+                          恢复
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        <div className="mt-4 text-center text-xs text-gray-500">ZenNote v0.3.5</div>
       </div>
     </div>
   );

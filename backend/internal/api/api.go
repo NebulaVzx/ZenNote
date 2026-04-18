@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -27,6 +28,9 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/pages/:id/blocks", getBlocks)
 	r.PUT("/api/pages/:id/blocks", updateBlocks)
 	r.PUT("/api/pages/:id/favorite", toggleFavoritePage)
+	r.GET("/api/pages/:id/snapshots", listSnapshots)
+	r.POST("/api/pages/:id/snapshots", createSnapshot)
+	r.POST("/api/pages/:id/snapshots/:snapshot_id/restore", restoreSnapshot)
 	r.GET("/api/search", search)
 	r.GET("/api/health", healthCheck)
 	registerSyncRoutes(r)
@@ -365,6 +369,14 @@ func updateBlocks(c *gin.Context) {
 		return
 	}
 
+	// Auto-create snapshot after saving blocks
+	if len(blocks) > 0 {
+		blocksJSON, _ := json.Marshal(blocks)
+		snapshotID := generateID("snapshot")
+		_, _ = tx.Exec("INSERT INTO page_snapshots (id, page_id, blocks_json, created_at) VALUES (?, ?, ?, ?)",
+			snapshotID, pageID, string(blocksJSON), now)
+	}
+
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -384,6 +396,122 @@ func toggleFavoritePage(c *gin.Context) {
 	now := time.Now().UnixMilli()
 	_, err := db.DB.Exec("UPDATE pages SET is_favorite = ?, updated_at = ? WHERE id = ?", req.IsFavorite, now, id)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+type snapshotResponse struct {
+	ID         string `json:"id"`
+	PageID     string `json:"page_id"`
+	BlocksJSON string `json:"blocks_json"`
+	CreatedAt  int64  `json:"created_at"`
+}
+
+func listSnapshots(c *gin.Context) {
+	pageID := c.Param("id")
+	rows, err := db.DB.Query(`
+		SELECT id, page_id, blocks_json, created_at
+		FROM page_snapshots
+		WHERE page_id = ?
+		ORDER BY created_at DESC
+		LIMIT 50`, pageID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	snapshots := make([]snapshotResponse, 0)
+	for rows.Next() {
+		var s snapshotResponse
+		if err := rows.Scan(&s.ID, &s.PageID, &s.BlocksJSON, &s.CreatedAt); err != nil {
+			continue
+		}
+		snapshots = append(snapshots, s)
+	}
+	c.JSON(http.StatusOK, snapshots)
+}
+
+func createSnapshot(c *gin.Context) {
+	pageID := c.Param("id")
+	var blocks []models.Block
+	if err := c.BindJSON(&blocks); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	blocksJSON, _ := json.Marshal(blocks)
+	id := generateID("snapshot")
+	now := time.Now().UnixMilli()
+	_, err := db.DB.Exec("INSERT INTO page_snapshots (id, page_id, blocks_json, created_at) VALUES (?, ?, ?, ?)",
+		id, pageID, string(blocksJSON), now)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": id})
+}
+
+func restoreSnapshot(c *gin.Context) {
+	pageID := c.Param("id")
+	snapshotID := c.Param("snapshot_id")
+
+	var blocksJSON string
+	err := db.DB.QueryRow("SELECT blocks_json FROM page_snapshots WHERE id = ? AND page_id = ?", snapshotID, pageID).Scan(&blocksJSON)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Snapshot not found"})
+		return
+	}
+
+	var blocks []models.Block
+	if err := json.Unmarshal([]byte(blocksJSON), &blocks); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	now := time.Now().UnixMilli()
+	tx, err := db.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec("DELETE FROM blocks WHERE page_id = ?", pageID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	stmt, err := tx.Prepare(`
+		INSERT INTO blocks (id, page_id, type, content, props, parent_id, sort_order, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer stmt.Close()
+
+	for i, b := range blocks {
+		props := b.Props
+		if props == "" {
+			props = "{}"
+		}
+		_, err := stmt.Exec(b.ID, pageID, b.Type, b.Content, props, b.ParentID, i, b.CreatedAt, now)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	_, err = tx.Exec("UPDATE pages SET updated_at = ? WHERE id = ?", now, pageID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

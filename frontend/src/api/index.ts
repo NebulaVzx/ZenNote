@@ -116,4 +116,10 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ is_favorite: isFavorite }),
     }),
+  listSnapshots: (pageId: string) =>
+    fetchJSON<{ id: string; page_id: string; blocks_json: string; created_at: number }[]>(`/api/pages/${pageId}/snapshots`),
+  createSnapshot: (pageId: string, blocks: Block[]) =>
+    fetchJSON<{ id: string }>(`/api/pages/${pageId}/snapshots`, { method: 'POST', body: JSON.stringify(blocks) }),
+  restoreSnapshot: (pageId: string, snapshotId: string) =>
+    fetchJSON<{ ok: boolean }>(`/api/pages/${pageId}/snapshots/${snapshotId}/restore`, { method: 'POST' }),
 };

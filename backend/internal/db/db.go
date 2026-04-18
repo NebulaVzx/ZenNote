@@ -134,6 +134,15 @@ CREATE VIRTUAL TABLE IF NOT EXISTS blocks_fts USING fts5(
 		updated_at INTEGER,
 		FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
 	);
+
+	CREATE TABLE IF NOT EXISTS page_snapshots (
+		id TEXT PRIMARY KEY,
+		page_id TEXT NOT NULL,
+		blocks_json TEXT NOT NULL,
+		created_at INTEGER,
+		FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
+	);
+	CREATE INDEX IF NOT EXISTS idx_snapshots_page_id ON page_snapshots(page_id);
 `
 	_, err := DB.Exec(schema)
 	return err
