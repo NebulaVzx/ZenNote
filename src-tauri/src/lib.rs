@@ -163,28 +163,24 @@ fn try_start_backend() -> Option<Child> {
 
     let mut child = cmd.spawn().ok()?;
 
-    // Wait for the backend to actually bind to :8080 (max 30s).
-    // On first launch SQLite schema init + Windows firewall popup
-    // can take several seconds; a fixed 800ms sleep is not enough.
-    let mut ready = false;
-    for _ in 0..120 {
-        thread::sleep(Duration::from_millis(250));
+    // Poll until the backend actually binds to :8080.
+    // No hard timeout: the user may need time to respond to a Windows
+    // Defender firewall popup on first launch. If the child exits
+    // before binding (panic / missing binary) we bail out.
+    loop {
+        thread::sleep(Duration::from_millis(500));
+        if let Ok(Some(_status)) = child.try_wait() {
+            // Backend process exited before binding — something went wrong
+            return None;
+        }
         if TcpStream::connect_timeout(
             &"127.0.0.1:8080".parse().unwrap(),
             Duration::from_millis(100),
         )
         .is_ok()
         {
-            ready = true;
-            break;
+            return Some(child);
         }
-    }
-
-    if ready {
-        Some(child)
-    } else {
-        let _ = child.kill();
-        None
     }
 }
 
