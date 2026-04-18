@@ -23,6 +23,10 @@
 - **状态**：v0.3.0 已实现。新增 `image` 块类型，支持从剪贴板粘贴图片（自动存入 `.zennote/assets/`）和从外部拖拽图片插入编辑器。图片路径以相对路径存储于 `block.props`。
 - **修复位置**：`frontend/src/components/Editor.tsx`、`frontend/src/components/SlashCommand.tsx`、`src-tauri/src/lib.rs`
 
+### 5a. 悬浮大纲 / TOC [FIXED ✅]
+- **状态**：v0.3.5 已实现。`OutlinePanel` 组件在 Editor 右侧提取 heading 块形成目录树，支持点击跳转到对应位置，使用 `IntersectionObserver` 实现滚动联动高亮当前 heading。
+- **修复位置**：`frontend/src/components/OutlinePanel.tsx`、`frontend/src/components/Editor.tsx`
+
 ### 5. 表格块
 - **现状**：无
 - **对标**：Notion / 语雀 / 思源均支持
@@ -49,14 +53,9 @@
 - **状态**：v0.2.7 已实现。拖拽手柄旁 `⋯` 按钮弹出 Block Menu，支持 Delete / Duplicate / Turn into。
 - **修复位置**：`frontend/src/components/Editor.tsx`、`frontend/src/components/SlashCommand.tsx`
 
-### 11. 撤销 / 重做 (Undo/Redo)
-- **现状**：依赖浏览器默认 contentEditable 行为，不可靠
-- **对标**：Notion Ctrl+Z 可精确撤销到任意历史状态
-- **难度**：XL | **影响**：High
-- **建议**：
-  - 方案 A：引入 `yjs` + `y-prosemirror` 做协作式 UndoManager
-  - 方案 B：自建操作栈（每次 blocks 变更记录 diff，Ctrl+Z 回放）
-  - 这是体验核心，但工程量大，建议分阶段
+### 11. 撤销 / 重做 (Undo/Redo) [FIXED ✅]
+- **状态**：v0.3.5 已实现。`useBlockHistory` hook 快照式历史栈（最大 50 条），在 insert / delete / duplicate / reorder / type change / AI accept / multi-select delete 前自动 `history.push`。支持 `Ctrl+Z` 撤销、`Ctrl+Y` / `Ctrl+Shift+Z` 重做，还原时自动刷新 DOM。
+- **修复位置**：`frontend/src/hooks/useBlockHistory.ts`、`frontend/src/components/Editor.tsx`
 
 ---
 
@@ -132,11 +131,9 @@
 
 ## 五、视觉与交互 (UI/UX)
 
-### 23. 加载状态 / 骨架屏
-- **现状**：Editor 仅显示 "Loading..." 文字
-- **对标**：Notion / 语雀加载时有骨架屏动画
-- **难度**：S | **影响**：Med
-- **建议**：CSS 动画骨架屏替代 "Loading..."
+### 23. 加载状态 / 骨架屏 [FIXED ✅]
+- **状态**：v0.3.5 已实现。`SkeletonScreen` 组件替代 "Loading..." 文字，包含标题、段落行、Heading、代码块的脉冲动画占位。
+- **修复位置**：`frontend/src/components/SkeletonScreen.tsx`、`frontend/src/components/Editor.tsx`
 
 ### 24. 空状态引导
 - **现状**：欢迎页仅有 `📝` + 文字
@@ -232,8 +229,9 @@
 | `Ctrl+B` | 加粗 | ✅ |
 | `Ctrl+I` | 斜体 | ✅ |
 | `Ctrl+S` | 手动保存 | ❌ 未实现 |
-| `Ctrl+Z` | 撤销 | ⚠️ 依赖浏览器，不可靠 |
-| `Ctrl+Shift+Z` | 重做 | ⚠️ 同上 |
+| `Ctrl+Z` | 撤销 | ✅ (v0.3.5) |
+| `Ctrl+Shift+Z` | 重做 | ✅ (v0.3.5) |
+| `Ctrl+Y` | 重做 | ✅ (v0.3.5) |
 | `Ctrl+\` | 切换侧边栏 | ✅ (v0.2.3) |
 | `Ctrl+/` | 快捷键帮助 | ✅ (v0.2.5) |
 | `Ctrl+Shift+P` | 命令面板 | ❌ 未实现 |
@@ -249,11 +247,11 @@
 > P0 已全部完成 ✅
 
 ### P1 — 近期迭代 (体验提升明显)
-> 原有 #13/#14/#15/#20 已全部完成 ✅。当前待办：
-1. **AI 增强** — 流式输出、更多 action（摘要 / 改写语气 / 代码生成）。差异化核心，持续迭代。
-2. **撤销 / 重做** (#11) — XL 级。编辑器体验天花板功能，当前依赖浏览器默认行为不可靠。
-3. **骨架屏** (#23) — S 级。纯 CSS 动画替代 "Loading..."，投入小见效快。
-4. **悬浮大纲** — S 级。Editor 右侧自动提取 H1/H2/H3 形成目录树，点击跳转 + 滚动联动高亮。对标 Notion TOC，零后端改动。
+> P1 已全部完成 ✅ (v0.3.5)
+1. **AI 增强** — v0.3.5 已完成。流式 SSE 输出、7 个新 action（摘要 / 缩短 / 扩展 / 专业语气 / 随意语气 / 友好语气 / 代码生成）、Tone 子菜单。
+2. **撤销 / 重做** (#11) — v0.3.5 已完成。快照式历史栈，Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z。
+3. **骨架屏** (#23) — v0.3.5 已完成。CSS 脉冲动画骨架屏替代 "Loading..."。
+4. **悬浮大纲** — v0.3.5 已完成。右侧 heading 目录树 + IntersectionObserver 滚动联动。
 
 ### P2 — 中期规划 (功能完善)
 4. **版本历史** (#32) — L 级。数据安全底线功能，每保存 snapshot 到 `page_snapshots` 表。
@@ -274,4 +272,4 @@
 
 ---
 
-> 文档生成时间：2026-04-18 | 当前版本：v0.3.4
+> 文档生成时间：2026-04-18 | 当前版本：v0.3.5
