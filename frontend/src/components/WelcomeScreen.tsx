@@ -90,28 +90,28 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onSelectTemplate, onSkip }: WelcomeScreenProps) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 px-4">
+    <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-secondary)] px-4">
       <div className="text-5xl mb-3">📝</div>
-      <div className="text-xl font-medium text-gray-200 mb-1">欢迎使用 ZenNote</div>
-      <div className="text-sm text-gray-500 mb-8">选择一个模板开始你的笔记之旅</div>
+      <div className="text-xl font-medium text-[var(--text-primary)] mb-1">欢迎使用 ZenNote</div>
+      <div className="text-sm text-[var(--text-secondary)] mb-8">选择一个模板开始你的笔记之旅</div>
 
       <div className="grid grid-cols-2 gap-4 w-full max-w-lg">
         {TEMPLATES.map((t) => (
           <button
             key={t.key}
             onClick={() => onSelectTemplate(t.key)}
-            className="flex flex-col items-start gap-2 p-4 rounded-lg border border-[#2a2a2a] bg-[#1e1e1e] hover:border-blue-500/50 hover:bg-[#252525] transition-all text-left"
+            className="flex flex-col items-start gap-2 p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] hover:border-blue-500/50 hover:bg-[var(--bg-tertiary)] transition-all text-left"
           >
-            <div className="p-2 bg-[#2a2a2a] rounded-lg">{t.icon}</div>
-            <div className="text-sm font-medium text-gray-200">{t.label}</div>
-            <div className="text-xs text-gray-500">{t.description}</div>
+            <div className="p-2 bg-[var(--bg-tertiary)] rounded-lg">{t.icon}</div>
+            <div className="text-sm font-medium text-[var(--text-primary)]">{t.label}</div>
+            <div className="text-xs text-[var(--text-secondary)]">{t.description}</div>
           </button>
         ))}
       </div>
 
       <button
         onClick={onSkip}
-        className="mt-6 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+        className="mt-6 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
       >
         跳过，从空白页开始
       </button>

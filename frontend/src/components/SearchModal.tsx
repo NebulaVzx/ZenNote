@@ -102,29 +102,29 @@ export function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-[640px] max-w-[90vw] bg-[#202020] rounded-lg shadow-2xl border border-[#2f2f2f] overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2f2f2f]">
-          <Search size={18} className="text-gray-400" />
+      <div className="w-[640px] max-w-[90vw] bg-[var(--bg-secondary)] rounded-lg shadow-2xl border border-[var(--border-color)] overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border-color)]">
+          <Search size={18} className="text-[var(--text-secondary)]" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="搜索页面和块..."
-            className="flex-1 bg-transparent outline-none text-gray-200 placeholder-gray-500"
+            className="flex-1 bg-transparent outline-none text-[var(--text-primary)] placeholder-[var(--text-secondary)]"
           />
-          <span className="text-xs text-gray-500">ESC 关闭</span>
+          <span className="text-xs text-[var(--text-secondary)]">ESC 关闭</span>
         </div>
         <div className="max-h-[50vh] overflow-y-auto">
           {results.length === 0 && query.trim() !== '' && (
-            <div className="px-4 py-6 text-sm text-gray-500 text-center">未找到结果</div>
+            <div className="px-4 py-6 text-sm text-[var(--text-secondary)] text-center">未找到结果</div>
           )}
           {results.length === 0 && query.trim() === '' && history.length > 0 && (
             <div className="px-4 py-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-gray-500 uppercase tracking-wider">最近搜索</span>
+                <span className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">最近搜索</span>
                 <button
                   onClick={clearHistory}
-                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                 >
                   清除全部
                 </button>
@@ -137,14 +137,14 @@ export function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
                   >
                     <button
                       onClick={() => setQuery(item)}
-                      className="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm text-gray-300 rounded hover:bg-[#2a2a2a] text-left"
+                      className="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm text-[var(--text-primary)] rounded hover:bg-[var(--bg-tertiary)] text-left"
                     >
-                      <Clock size={14} className="text-gray-500" />
+                      <Clock size={14} className="text-[var(--text-secondary)]" />
                       <span className="truncate">{item}</span>
                     </button>
                     <button
                       onClick={() => removeHistoryItem(item)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-gray-300 rounded transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded transition-opacity"
                       title="删除"
                     >
                       <X size={14} />
@@ -155,7 +155,7 @@ export function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
             </div>
           )}
           {results.length === 0 && query.trim() === '' && history.length === 0 && (
-            <div className="px-4 py-6 text-sm text-gray-500 text-center">输入关键词开始搜索</div>
+            <div className="px-4 py-6 text-sm text-[var(--text-secondary)] text-center">输入关键词开始搜索</div>
           )}
           {results.map((r, idx) => (
             <button
@@ -164,13 +164,13 @@ export function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
                 onSelect(r.page_id, r.block_id);
                 onClose();
               }}
-              className="w-full text-left px-4 py-3 hover:bg-[#2a2a2a] border-b border-[#2a2a2a] last:border-0"
+              className="w-full text-left px-4 py-3 hover:bg-[var(--bg-tertiary)] border-b border-[var(--border-color)] last:border-0"
             >
-              <div className="flex items-center gap-2 text-sm text-gray-200">
-                <FileText size={14} className="text-gray-400" />
+              <div className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+                <FileText size={14} className="text-[var(--text-secondary)]" />
                 <span className="font-medium">{r.page_title}</span>
               </div>
-              <div className="mt-1 text-xs text-gray-400 line-clamp-2">
+              <div className="mt-1 text-xs text-[var(--text-secondary)] line-clamp-2">
                 {stripHtml(r.highlights || r.content)}
               </div>
             </button>

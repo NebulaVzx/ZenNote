@@ -77,16 +77,16 @@ export function KeyboardShortcutsModal({ open, onClose }: Props) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-[560px] max-w-[90vw] bg-[#1e1e1e] rounded-lg border border-[#333] shadow-xl overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[#333]">
-          <div className="flex items-center gap-2 text-gray-200">
-            <Command size={18} className="text-gray-400" />
+      <div className="w-[560px] max-w-[90vw] bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-color)]">
+          <div className="flex items-center gap-2 text-[var(--text-primary)]">
+            <Command size={18} className="text-[var(--text-secondary)]" />
             <h2 className="text-base font-medium">Keyboard shortcuts</h2>
           </div>
           <button
             ref={closeButtonRef}
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-200"
+            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             aria-label="Close"
           >
             <X size={18} />
@@ -96,12 +96,12 @@ export function KeyboardShortcutsModal({ open, onClose }: Props) {
         <div className="max-h-[60vh] overflow-y-auto p-4 space-y-5">
           {groups.map((g) => (
             <div key={g.title}>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{g.title}</h3>
+              <h3 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">{g.title}</h3>
               <div className="space-y-1.5">
                 {g.items.map((item) => (
                   <div key={item.keys + item.desc} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-300">{item.desc}</span>
-                    <span className="px-2 py-0.5 bg-[#2a2a2a] rounded text-xs text-gray-200 border border-[#444] whitespace-nowrap ml-4">
+                    <span className="text-[var(--text-primary)]">{item.desc}</span>
+                    <span className="px-2 py-0.5 bg-[var(--bg-tertiary)] rounded text-xs text-[var(--text-primary)] border border-[var(--border-color)] whitespace-nowrap ml-4">
                       {item.keys}
                     </span>
                   </div>
@@ -111,7 +111,7 @@ export function KeyboardShortcutsModal({ open, onClose }: Props) {
           ))}
         </div>
 
-        <div className="px-4 py-2 border-t border-[#333] text-xs text-gray-500 text-center">
+        <div className="px-4 py-2 border-t border-[var(--border-color)] text-xs text-[var(--text-secondary)] text-center">
           Press ESC to close
         </div>
       </div>

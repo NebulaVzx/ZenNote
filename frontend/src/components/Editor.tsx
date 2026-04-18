@@ -85,6 +85,7 @@ export function Editor({
   const [dragOverPos, setDragOverPos] = useState<'before' | 'after' | null>(null);
   const [localTitle, setLocalTitle] = useState(title);
   const lastSelectAllRef = useRef<number>(0);
+  const lastSavedBlocksRef = useRef<Block[]>([]);
 
   useEffect(() => {
     setLocalTitle(title);
@@ -138,6 +139,7 @@ export function Editor({
     api.getBlocks(pageId).then((data) => {
       const safe = data.length ? data : [createEmptyBlock()];
       setBlocks(safe);
+      lastSavedBlocksRef.current = JSON.parse(JSON.stringify(safe));
       setLoaded(true);
       history.clear();
       history.push(safe);
@@ -241,7 +243,26 @@ export function Editor({
         const html = blockRefs.current[i]?.innerHTML || '';
         return { ...b, content: html };
       });
-      api.updateBlocks(pageId, payload).then(() => {
+      // Find changed blocks compared to last saved state
+      const lastSaved = lastSavedBlocksRef.current;
+      const changedBlocks = payload.filter((b, i) => {
+        const last = lastSaved[i];
+        return !last || last.content !== b.content || last.props !== b.props || last.type !== b.type;
+      });
+      const hasStructuralChanges = payload.length !== lastSaved.length ||
+        payload.some((b, i) => !lastSaved[i] || lastSaved[i].id !== b.id);
+
+      const doSave = () => {
+        if (hasStructuralChanges) {
+          return api.updateBlocks(pageId, payload);
+        } else if (changedBlocks.length > 0) {
+          return api.patchBlocks(pageId, changedBlocks);
+        }
+        return Promise.resolve({ ok: true });
+      };
+
+      doSave().then(() => {
+        lastSavedBlocksRef.current = JSON.parse(JSON.stringify(payload));
         if (filePath) {
           const fm: Record<string, any> = {};
           if (frontmatter) { try { Object.assign(fm, JSON.parse(frontmatter)); } catch {} }
@@ -971,12 +992,12 @@ export function Editor({
   };
 
   const blockClass = (type: BlockType) => {
-    const base = 'py-1.5 px-1 outline-none text-gray-200 zen-editor rounded hover:bg-[#1e1e1e]';
+    const base = 'py-1.5 px-1 outline-none text-[var(--text-primary)] zen-editor rounded hover:bg-[var(--bg-secondary)]';
     switch (type) {
       case 'heading':
         return base + ' text-2xl font-semibold';
       case 'quote':
-        return base + ' border-l-4 border-gray-500 pl-3 italic text-gray-300';
+        return base + ' border-l-4 border-gray-500 pl-3 italic text-[var(--text-primary)]';
       case 'code':
         return 'hidden';
       case 'divider':
@@ -1056,13 +1077,13 @@ export function Editor({
       {toolbarVisible && (
         <div
           style={{ left: toolbarPos.left, top: toolbarPos.top, position: 'absolute' }}
-          className="flex items-center gap-1 px-2 py-1 bg-[#2a2a2a] border border-[#444] rounded shadow-lg"
+          className="flex items-center gap-1 px-2 py-1 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded shadow-lg"
         >
-          <button onClick={() => applyInlineFormat('bold')} className="px-2 py-0.5 text-sm font-bold text-gray-200 hover:bg-[#333] rounded">B</button>
-          <button onClick={() => applyInlineFormat('italic')} className="px-2 py-0.5 text-sm italic text-gray-200 hover:bg-[#333] rounded">I</button>
-          <button onClick={() => applyInlineFormat('strikeThrough')} className="px-2 py-0.5 text-sm line-through text-gray-200 hover:bg-[#333] rounded">S</button>
-          <button onClick={() => applyInlineFormat('removeFormat')} className="px-2 py-0.5 text-sm text-gray-400 hover:bg-[#333] rounded">✕</button>
-          <div className="w-px h-4 bg-[#444] mx-0.5" />
+          <button onClick={() => applyInlineFormat('bold')} className="px-2 py-0.5 text-sm font-bold text-[var(--text-primary)] hover:bg-[var(--hover)] rounded">B</button>
+          <button onClick={() => applyInlineFormat('italic')} className="px-2 py-0.5 text-sm italic text-[var(--text-primary)] hover:bg-[var(--hover)] rounded">I</button>
+          <button onClick={() => applyInlineFormat('strikeThrough')} className="px-2 py-0.5 text-sm line-through text-[var(--text-primary)] hover:bg-[var(--hover)] rounded">S</button>
+          <button onClick={() => applyInlineFormat('removeFormat')} className="px-2 py-0.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover)] rounded">✕</button>
+          <div className="w-px h-4 bg-[var(--border-color)] mx-0.5" />
           <button
             onClick={() => {
               const sel = window.getSelection();
@@ -1077,7 +1098,7 @@ export function Editor({
               }
               setAiPanelOpen(true);
             }}
-            className="px-2 py-0.5 text-sm text-gray-200 hover:bg-[#333] rounded flex items-center gap-1"
+            className="px-2 py-0.5 text-sm text-[var(--text-primary)] hover:bg-[var(--hover)] rounded flex items-center gap-1"
             title="Ask AI"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
@@ -1092,23 +1113,23 @@ export function Editor({
       )}
       {blockMenuOpen && blockMenuIdx !== null && (
         <div
-          className="absolute z-50 w-48 bg-[#252525] border border-[#333] rounded-md shadow-xl py-1"
+          className="absolute z-50 w-48 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-md shadow-xl py-1"
           style={{ left: blockMenuPos.left, top: blockMenuPos.top }}
         >
           <button
             onClick={() => { removeBlock(blockMenuIdx); setBlockMenuOpen(false); }}
-            className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-[#333] flex items-center gap-2"
+            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--hover)] flex items-center gap-2"
           >
             <span>🗑️</span> Delete
           </button>
           <button
             onClick={() => { duplicateBlock(blockMenuIdx); setBlockMenuOpen(false); }}
-            className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-[#333] flex items-center gap-2"
+            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--hover)] flex items-center gap-2"
           >
             <span>📄</span> Duplicate
           </button>
-          <div className="h-px bg-[#333] my-1" />
-          <div className="px-3 py-1 text-xs text-gray-500">Turn into</div>
+          <div className="h-px bg-[var(--border-color)] my-1" />
+          <div className="px-3 py-1 text-xs text-[var(--text-secondary)]">Turn into</div>
           {ITEMS.filter((item) => item.label !== 'AI Assist').map((item) => (
             <button
               key={item.label}
@@ -1117,9 +1138,9 @@ export function Editor({
                 handleSlashSelect(item);
                 setBlockMenuOpen(false);
               }}
-              className="w-full text-left px-3 py-1.5 text-sm text-gray-200 hover:bg-[#333] flex items-center gap-2"
+              className="w-full text-left px-3 py-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--hover)] flex items-center gap-2"
             >
-              <span className="text-gray-400">{item.icon}</span>
+              <span className="text-[var(--text-secondary)]">{item.icon}</span>
               <span>{item.label}</span>
             </button>
           ))}
@@ -1130,7 +1151,7 @@ export function Editor({
           <div className="relative">
             <button
               onClick={() => setEmojiPickerOpen((v) => !v)}
-              className="mt-2 text-3xl w-10 h-10 flex items-center justify-center hover:bg-[#252525] rounded transition-colors"
+              className="mt-2 text-3xl w-10 h-10 flex items-center justify-center hover:bg-[var(--bg-tertiary)] rounded transition-colors"
               title="Choose icon"
             >
               {icon || '📄'}
@@ -1161,7 +1182,7 @@ export function Editor({
               }
             }}
             placeholder="Untitled"
-            className="flex-1 bg-transparent text-4xl font-bold text-gray-100 placeholder-gray-600 outline-none"
+            className="flex-1 bg-transparent text-4xl font-bold text-[var(--text-primary)] placeholder-[var(--text-secondary)] outline-none"
           />
         </div>
         <div className="space-y-1">
@@ -1180,12 +1201,12 @@ export function Editor({
             let leftIcon: React.ReactNode = null;
             if (block.type === 'toggle') {
               leftIcon = (
-                <button onClick={() => toggleExpand(idx)} className="mt-2 w-6 text-center text-gray-400 select-none shrink-0 hover:text-gray-200">
+                <button onClick={() => toggleExpand(idx)} className="mt-2 w-6 text-center text-[var(--text-secondary)] select-none shrink-0 hover:text-[var(--text-primary)]">
                   {props.expanded ? '▼' : '▶'}
                 </button>
               );
-            } else if (block.type === 'bullet_list') leftIcon = <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">•</span>;
-            else if (block.type === 'numbered_list') leftIcon = <span className="mt-2 w-6 text-center text-gray-400 select-none shrink-0">{listNumber}.</span>;
+            } else if (block.type === 'bullet_list') leftIcon = <span className="mt-2 w-6 text-center text-[var(--text-secondary)] select-none shrink-0">•</span>;
+            else if (block.type === 'numbered_list') leftIcon = <span className="mt-2 w-6 text-center text-[var(--text-secondary)] select-none shrink-0">{listNumber}.</span>;
             else if (block.type === 'todo_list') {
               leftIcon = (
                 <input
@@ -1213,7 +1234,7 @@ export function Editor({
                 )}
                 <div className="relative flex flex-col items-center">
                   <div
-                    className="mt-1 py-1 px-0.5 w-5 text-center text-gray-500 select-none shrink-0 cursor-grab active:cursor-grabbing rounded hover:bg-[#333]"
+                    className="mt-1 py-1 px-0.5 w-5 text-center text-[var(--text-secondary)] select-none shrink-0 cursor-grab active:cursor-grabbing rounded hover:bg-[var(--hover)]"
                     draggable
                     onDragStart={(e) => handleBlockDragStart(e, idx)}
                     onDragEnd={handleBlockDragEnd}
@@ -1234,7 +1255,7 @@ export function Editor({
                       });
                       setBlockMenuOpen(true);
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 text-[10px] text-gray-500 hover:text-gray-200 hover:bg-[#333] rounded leading-none"
+                    className="opacity-0 group-hover:opacity-100 p-0.5 text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover)] rounded leading-none"
                     title="Block menu"
                   >
                     ⋯
@@ -1249,7 +1270,7 @@ export function Editor({
                         contentEditable
                         suppressContentEditableWarning
                         data-placeholder={PLACEHOLDERS.toggle}
-                        className="py-1.5 px-1 outline-none text-gray-200 zen-editor rounded hover:bg-[#1e1e1e] font-medium"
+                        className="py-1.5 px-1 outline-none text-[var(--text-primary)] zen-editor rounded hover:bg-[var(--bg-secondary)] font-medium"
                         onKeyDown={(e) => handleKeyDown(e, idx)}
                         onInput={() => handleInput(idx)}
                         onBlur={(e) => handleBlur(idx, e)}
@@ -1258,20 +1279,20 @@ export function Editor({
                     ) : (
                       <div
                         ref={(el) => { blockRefs.current[idx] = el; }}
-                        className="py-1.5 px-1 text-gray-200 rounded hover:bg-[#1e1e1e] font-medium cursor-text"
+                        className="py-1.5 px-1 text-[var(--text-primary)] rounded hover:bg-[var(--bg-secondary)] font-medium cursor-text"
                         onClick={() => activateBlock(idx)}
                         dangerouslySetInnerHTML={{ __html: block.content }}
                       />
                     )}
                     {props.expanded && (
-                      <div className="pl-4 border-l-2 border-[#333] mt-1 text-gray-400 text-sm">
+                      <div className="pl-4 border-l-2 border-[var(--border-color)] mt-1 text-[var(--text-secondary)] text-sm">
                         Toggle content placeholder (nested blocks coming soon)
                       </div>
                     )}
                   </div>
                 ) : block.type === 'divider' ? (
                   <div className="flex-1 py-3">
-                    <hr className="border-[#2f2f2f]" />
+                    <hr className="border-[var(--border-color)]" />
                   </div>
                 ) : block.type === 'image' ? (
                   <div className="flex-1">
@@ -1279,23 +1300,23 @@ export function Editor({
                       <img
                         src={props.src}
                         alt={block.content || ''}
-                        className="max-w-full rounded border border-[#333]"
+                        className="max-w-full rounded border border-[var(--border-color)]"
                         draggable={false}
                       />
                     ) : (
-                      <div className="px-3 py-2 bg-[#1e1e1e] border border-[#333] rounded text-gray-500 text-sm">
+                      <div className="px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded text-[var(--text-secondary)] text-sm">
                         Image (no source)
                       </div>
                     )}
                   </div>
                 ) : block.type === 'code' ? (
                   <div className="flex-1 relative group min-w-0">
-                    <div className="flex items-center justify-between px-2 py-1 h-7 bg-[#1a1a1a] rounded-t border-x border-t border-[#2f2f2f]">
-                      <span className="text-xs text-gray-500 font-medium">Code block</span>
+                    <div className="flex items-center justify-between px-2 py-1 h-7 bg-[var(--bg-secondary)] rounded-t border-x border-t border-[var(--border-color)]">
+                      <span className="text-xs text-[var(--text-secondary)] font-medium">Code block</span>
                       <select
                         value={props.language || 'text'}
                         onChange={(e) => updateBlock(idx, { props: JSON.stringify({ ...props, language: e.target.value }) })}
-                        className="text-xs bg-[#252525] text-gray-300 border border-[#333] rounded px-1.5 py-0.5 outline-none hover:border-[#444]"
+                        className="text-xs bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-color)] rounded px-1.5 py-0.5 outline-none hover:border-[var(--border-color)]"
                       >
                         {['text','typescript','javascript','python','go','rust','html','css','json','sql','bash','java','cpp','c','php','ruby','swift','kotlin'].map((lang) => (
                           <option key={lang} value={lang}>{lang}</option>
@@ -1303,7 +1324,7 @@ export function Editor({
                       </select>
                     </div>
                     <div
-                      className="rounded-b border-x border-b border-[#2f2f2f] overflow-hidden bg-[#151515]"
+                      className="rounded-b border-x border-b border-[var(--border-color)] overflow-hidden bg-[var(--bg-primary)]"
                       ref={(el) => {
                         if (el) {
                           const ta = el.querySelector('textarea');
@@ -1319,9 +1340,9 @@ export function Editor({
                         }}
                         highlight={(code) => hljs.highlight(code || ' ', { language: props.language || 'text' }).value}
                         padding={12}
-                        className="text-sm font-mono text-gray-300 whitespace-pre-wrap min-w-0"
+                        className="text-sm font-mono text-[var(--text-primary)] whitespace-pre-wrap min-w-0"
                         textareaClassName="bg-transparent text-transparent caret-white outline-none resize-none text-sm font-mono whitespace-pre-wrap min-w-0"
-                        preClassName="text-sm font-mono text-gray-300 whitespace-pre-wrap min-w-0"
+                        preClassName="text-sm font-mono text-[var(--text-primary)] whitespace-pre-wrap min-w-0"
                         onKeyDown={(e) => handleCodeKeyDown(e as React.KeyboardEvent<HTMLTextAreaElement>, idx)}
                         onBlur={() => { flushBlock(idx); setActiveIdx(null); }}
                         onFocus={() => setActiveIdx(idx)}
@@ -1339,7 +1360,7 @@ export function Editor({
                         contentEditable
                         suppressContentEditableWarning
                         data-placeholder={PLACEHOLDERS[block.type]}
-                        className={[blockClass(block.type), block.type === 'todo_list' && props.checked ? 'line-through text-gray-500' : ''].join(' ')}
+                        className={[blockClass(block.type), block.type === 'todo_list' && props.checked ? 'line-through text-[var(--text-secondary)]' : ''].join(' ')}
                         style={block.type === 'heading' && props.level === 2 ? { fontSize: '1.5rem' } : block.type === 'heading' && props.level === 3 ? { fontSize: '1.25rem' } : undefined}
                         onKeyDown={(e) => handleKeyDown(e, idx)}
                         onInput={() => handleInput(idx)}
@@ -1350,7 +1371,7 @@ export function Editor({
                       <div
                         ref={(el) => { blockRefs.current[idx] = el; }}
                         data-placeholder={PLACEHOLDERS[block.type]}
-                        className={[blockClass(block.type), 'cursor-text', block.type === 'todo_list' && props.checked ? 'line-through text-gray-500' : ''].join(' ')}
+                        className={[blockClass(block.type), 'cursor-text', block.type === 'todo_list' && props.checked ? 'line-through text-[var(--text-secondary)]' : ''].join(' ')}
                         style={block.type === 'heading' && props.level === 2 ? { fontSize: '1.5rem' } : block.type === 'heading' && props.level === 3 ? { fontSize: '1.25rem' } : undefined}
                         onClick={() => activateBlock(idx)}
                         dangerouslySetInnerHTML={{ __html: block.content }}
@@ -1366,7 +1387,7 @@ export function Editor({
             const clickToAdd = (block.type === 'code' || block.type === 'divider') ? (
               <div
                 key={`add-${block.id}`}
-                className="h-5 -mt-1 mb-1 ml-7 cursor-text hover:bg-[#252525]/60 rounded flex items-center justify-center text-gray-600 text-[10px] opacity-0 hover:opacity-100 transition-opacity"
+                className="h-5 -mt-1 mb-1 ml-7 cursor-text hover:bg-[var(--bg-tertiary)]/60 rounded flex items-center justify-center text-[var(--text-secondary)] text-[10px] opacity-0 hover:opacity-100 transition-opacity"
                 onClick={() => insertBlock(idx, 'paragraph')}
               >
                 Click to add text
@@ -1375,12 +1396,12 @@ export function Editor({
             const ghostBlock = (aiGhost && aiGhost.index === idx) ? (
               <div key={`ghost-${block.id}`} className="flex items-start gap-2 relative my-1">
                 <div className="w-5 shrink-0" />
-                <div className="flex-1 px-3 py-2 bg-[#1e1e1e] border border-green-600/40 border-l-4 border-l-green-500 rounded text-gray-200 whitespace-pre-wrap">
+                <div className="flex-1 px-3 py-2 bg-[var(--bg-secondary)] border border-green-600/40 border-l-4 border-l-green-500 rounded text-[var(--text-primary)] whitespace-pre-wrap">
                   {aiGhost.content}
                 </div>
                 <div className="flex flex-col gap-1">
                   <button onClick={acceptAIGhost} className="px-2 py-1 text-xs bg-green-600 hover:bg-green-500 text-white rounded">Accept</button>
-                  <button onClick={() => setAiGhost(null)} className="px-2 py-1 text-xs bg-[#2a2a2a] hover:bg-[#333] text-gray-200 rounded">Reject</button>
+                  <button onClick={() => setAiGhost(null)} className="px-2 py-1 text-xs bg-[var(--bg-tertiary)] hover:bg-[var(--hover)] text-[var(--text-primary)] rounded">Reject</button>
                 </div>
               </div>
             ) : null;

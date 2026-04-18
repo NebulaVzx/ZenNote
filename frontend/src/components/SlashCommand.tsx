@@ -74,7 +74,7 @@ export function SlashCommand({ query, onSelect, onClose }: SlashCommandProps) {
   return (
     <div
       ref={containerRef}
-      className="absolute z-50 w-56 bg-[#252525] border border-[#333] rounded-md shadow-xl overflow-y-auto max-h-72 py-1"
+      className="absolute z-50 w-56 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-md shadow-xl overflow-y-auto max-h-72 py-1"
     >
       {filtered.map((item, idx) => (
         <button
@@ -82,10 +82,10 @@ export function SlashCommand({ query, onSelect, onClose }: SlashCommandProps) {
           onClick={() => onSelect(item)}
           className={[
             'w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors',
-            idx === selected ? 'bg-[#3b82f6] text-white' : 'text-gray-200 hover:bg-[#333]',
+            idx === selected ? 'bg-[#3b82f6] text-white' : 'text-[var(--text-primary)] hover:bg-[var(--hover)]',
           ].join(' ')}
         >
-          <span className="text-gray-400">{item.icon}</span>
+          <span className="text-[var(--text-secondary)]">{item.icon}</span>
           <span>{item.label}</span>
         </button>
       ))}

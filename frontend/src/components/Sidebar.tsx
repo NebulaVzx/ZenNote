@@ -77,7 +77,7 @@ function PageTreeItem({
       <div
         className={[
           'flex items-center gap-1 px-2 py-1.5 text-sm rounded mx-2 select-none transition-colors',
-          isActive ? 'bg-[#2a2a2a] text-white' : 'text-gray-300 hover:bg-[#252525]',
+          isActive ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)]' : 'text-[var(--text-primary)] hover:bg-[var(--hover)]',
           myPos === 'inside' ? 'ring-1 ring-blue-500 bg-blue-500/10' : '',
           isDragging ? 'opacity-50' : '',
         ].join(' ')}
@@ -103,7 +103,7 @@ function PageTreeItem({
             onDragStart={(e) => onDragStart(e, page.id)}
             onDragEnd={onDragEnd}
             onClick={(e) => e.stopPropagation()}
-            className="p-1.5 text-gray-500 cursor-grab active:cursor-grabbing hover:bg-[#333] rounded select-none"
+            className="p-1.5 text-[var(--text-secondary)] cursor-grab active:cursor-grabbing hover:bg-[var(--hover)] rounded select-none"
             title="Drag to move"
           >
             <GripVertical size={14} />
@@ -112,7 +112,7 @@ function PageTreeItem({
         {children.length > 0 ? (
           <button
             onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-            className="p-0.5 hover:bg-[#333] rounded"
+            className="p-0.5 hover:bg-[var(--hover)] rounded"
           >
             {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>
@@ -122,14 +122,14 @@ function PageTreeItem({
         {page.icon ? (
           <span className="text-sm shrink-0 w-[14px] text-center">{page.icon}</span>
         ) : (
-          <FileText size={14} className="text-gray-400 shrink-0" />
+          <FileText size={14} className="text-[var(--text-secondary)] shrink-0" />
         )}
         <span className="truncate flex-1">{page.title || 'Untitled'}</span>
         {!selectionMode && (
           <>
             <button
               onClick={(e) => { e.stopPropagation(); onCreatePage(page.id); }}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#333] rounded"
+              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[var(--hover)] rounded"
             >
               <Plus size={12} />
             </button>
@@ -138,7 +138,7 @@ function PageTreeItem({
                 e.stopPropagation();
                 onRequestDelete(page);
               }}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-600/80 rounded text-gray-400 hover:text-white"
+              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-600/80 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             >
               <Trash2 size={12} />
             </button>
@@ -436,11 +436,11 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
   const contextMenuPage = contextMenu ? safePages.find((p) => p.id === contextMenu.pageId) : null;
 
   return (
-    <div id="sidebar" className="w-[260px] bg-[#202020] border-r border-[#2f2f2f] flex flex-col h-full">
+    <div id="sidebar" className="w-[260px] bg-[var(--bg-secondary)] border-r border-[var(--border-color)] flex flex-col h-full">
       <div className="p-3">
         <button
           onClick={onOpenSearch}
-          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 bg-[#2a2a2a] hover:bg-[#333] rounded transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] bg-[var(--bg-tertiary)] hover:bg-[var(--hover)] rounded transition-colors"
         >
           <Search size={14} />
           <span>Search (Ctrl+P)</span>
@@ -449,7 +449,7 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
 
       {favoritePages.length > 0 && (
         <div className="px-3 pb-2">
-          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1 flex items-center gap-1">
+          <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-1 flex items-center gap-1">
             <Star size={12} /> Favorites
           </div>
           {favoritePages.map((page) => (
@@ -457,14 +457,14 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
               key={page.id}
               className={[
                 'flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer',
-                page.id === activePageId ? 'bg-[#2a2a2a] text-white' : 'text-gray-300 hover:bg-[#252525]',
+                page.id === activePageId ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)]' : 'text-[var(--text-primary)] hover:bg-[var(--hover)]',
               ].join(' ')}
               onClick={() => onSelectPage(page)}
             >
               {page.icon ? (
                 <span className="text-sm shrink-0 w-[14px] text-center">{page.icon}</span>
               ) : (
-                <FileText size={14} className="text-gray-400 shrink-0" />
+                <FileText size={14} className="text-[var(--text-secondary)] shrink-0" />
               )}
               <span className="truncate flex-1">{page.title || 'Untitled'}</span>
             </div>
@@ -472,7 +472,7 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
         </div>
       )}
 
-      <div className="flex items-center justify-between px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
+      <div className="flex items-center justify-between px-4 py-2 text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
         <span>Pages</span>
         <div className="flex items-center gap-1">
           {selectionMode ? (
@@ -480,13 +480,13 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
               <button
                 onClick={handleBulkDelete}
                 disabled={selectedIds.size === 0}
-                className="px-2 py-1 text-xs bg-red-600/80 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded"
+                className="px-2 py-1 text-xs bg-red-600/80 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-[var(--text-primary)] rounded"
               >
                 Delete ({selectedIds.size})
               </button>
               <button
                 onClick={() => { setSelectionMode(false); setSelectedIds(new Set()); }}
-                className="px-2 py-1 text-xs hover:bg-[#2a2a2a] rounded"
+                className="px-2 py-1 text-xs hover:bg-[var(--bg-tertiary)] rounded"
               >
                 Cancel
               </button>
@@ -498,7 +498,7 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
                   onClick={() => setSidebarView('tree')}
                   className={[
                     'p-1 rounded',
-                    sidebarView === 'tree' ? 'bg-[#2a2a2a] text-gray-200' : 'text-gray-500 hover:text-gray-300',
+                    sidebarView === 'tree' ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
                   ].join(' ')}
                   title="Tree view"
                 >
@@ -508,15 +508,15 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
                   onClick={() => setSidebarView('recent')}
                   className={[
                     'p-1 rounded',
-                    sidebarView === 'recent' ? 'bg-[#2a2a2a] text-gray-200' : 'text-gray-500 hover:text-gray-300',
+                    sidebarView === 'recent' ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
                   ].join(' ')}
                   title="Recent view"
                 >
                   <Clock size={12} />
                 </button>
               </div>
-              <button onClick={() => setSelectionMode(true)} className="px-2 py-1 text-xs hover:bg-[#2a2a2a] rounded">Select</button>
-              <button onClick={() => onCreatePage()} className="p-1 hover:bg-[#2a2a2a] rounded"><Plus size={14} /></button>
+              <button onClick={() => setSelectionMode(true)} className="px-2 py-1 text-xs hover:bg-[var(--bg-tertiary)] rounded">Select</button>
+              <button onClick={() => onCreatePage()} className="p-1 hover:bg-[var(--bg-tertiary)] rounded"><Plus size={14} /></button>
             </>
           )}
         </div>
@@ -560,17 +560,17 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
                 key={page.id}
                 className={[
                   'flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer',
-                  page.id === activePageId ? 'bg-[#2a2a2a] text-white' : 'text-gray-300 hover:bg-[#252525]',
+                  page.id === activePageId ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)]' : 'text-[var(--text-primary)] hover:bg-[var(--hover)]',
                 ].join(' ')}
                 onClick={() => onSelectPage(page)}
               >
                 {page.icon ? (
                   <span className="text-sm shrink-0 w-[14px] text-center">{page.icon}</span>
                 ) : (
-                  <FileText size={14} className="text-gray-400 shrink-0" />
+                  <FileText size={14} className="text-[var(--text-secondary)] shrink-0" />
                 )}
                 <span className="truncate flex-1">{page.title || 'Untitled'}</span>
-                <span className="text-xs text-gray-500 shrink-0">{timeAgo(page.updated_at)}</span>
+                <span className="text-xs text-[var(--text-secondary)] shrink-0">{timeAgo(page.updated_at)}</span>
               </div>
             ))}
           </div>
@@ -578,10 +578,10 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
       </div>
 
       {safeTrash.length > 0 && (
-        <div className="border-t border-[#2f2f2f]">
+        <div className="border-t border-[var(--border-color)]">
           <button
             onClick={() => setTrashExpanded((v) => !v)}
-            className="w-full flex items-center gap-2 px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide hover:bg-[#252525]"
+            className="w-full flex items-center gap-2 px-4 py-2 text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide hover:bg-[var(--hover)]"
           >
             {trashExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             <span>Trash ({safeTrash.length})</span>
@@ -591,13 +591,13 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
               {safeTrash.map((page) => (
                 <div
                   key={page.id}
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm rounded mx-2 text-gray-400 hover:bg-[#252525]"
+                  className="flex items-center gap-2 px-2 py-1.5 text-sm rounded mx-2 text-[var(--text-secondary)] hover:bg-[var(--hover)]"
                 >
-                  <FileText size={14} className="text-gray-500 shrink-0" />
+                  <FileText size={14} className="text-[var(--text-secondary)] shrink-0" />
                   <span className="truncate flex-1">{page.title || 'Untitled'}</span>
                   <button
                     onClick={() => onRestorePage?.(page.id)}
-                    className="p-1 hover:bg-[#333] rounded text-gray-400 hover:text-white"
+                    className="p-1 hover:bg-[var(--hover)] rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                     title="Restore"
                   >
                     <RotateCcw size={12} />
@@ -611,7 +611,7 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
                       });
                       setConfirmOpen(true);
                     }}
-                    className="p-1 hover:bg-red-600/80 rounded text-gray-400 hover:text-white"
+                    className="p-1 hover:bg-red-600/80 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                     title="Delete forever"
                   >
                     <Trash2 size={12} />
@@ -626,11 +626,11 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
       {contextMenu?.open && contextMenuPage && (
         <div
           ref={contextMenuRef}
-          className="fixed bg-[#1e1e1e] border border-[#333] rounded shadow-xl py-1 z-[100] w-44"
+          className="fixed bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded shadow-xl py-1 z-[100] w-44"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <button
-            className="w-full px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-[#2a2a2a] flex items-center gap-2"
+            className="w-full px-3 py-1.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] flex items-center gap-2"
             onClick={() => {
               onCreatePage(contextMenuPage.id);
               setContextMenu(null);
@@ -639,7 +639,7 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
             <Plus size={12} /> New page
           </button>
           <button
-            className="w-full px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-[#2a2a2a] flex items-center gap-2"
+            className="w-full px-3 py-1.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] flex items-center gap-2"
             onClick={() => {
               onSelectPage(contextMenuPage);
               setContextMenu(null);
@@ -648,7 +648,7 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
             <FileText size={12} /> Rename
           </button>
           <button
-            className="w-full px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-[#2a2a2a] flex items-center gap-2"
+            className="w-full px-3 py-1.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] flex items-center gap-2"
             onClick={() => {
               handleDuplicate(contextMenuPage.id);
               setContextMenu(null);
@@ -656,9 +656,9 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
           >
             <Copy size={12} /> Duplicate
           </button>
-          <div className="my-1 border-t border-[#333]" />
+          <div className="my-1 border-t border-[var(--border-color)]" />
           <button
-            className="w-full px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-[#2a2a2a] flex items-center gap-2"
+            className="w-full px-3 py-1.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] flex items-center gap-2"
             onClick={() => {
               onToggleFavorite?.(contextMenuPage.id, contextMenuPage.is_favorite === 1 ? 0 : 1);
               setContextMenu(null);
@@ -666,7 +666,7 @@ export function Sidebar({ pages, trashPages = [], activePageId, onSelectPage, on
           >
             <Star size={12} /> {contextMenuPage.is_favorite === 1 ? 'Remove from favorites' : 'Add to favorites'}
           </button>
-          <div className="my-1 border-t border-[#333]" />
+          <div className="my-1 border-t border-[var(--border-color)]" />
           <button
             className="w-full px-3 py-1.5 text-left text-sm text-red-400 hover:bg-red-600/20 flex items-center gap-2"
             onClick={() => {

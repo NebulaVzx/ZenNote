@@ -86,9 +86,9 @@ export function OutlinePanel({ blocks, containerRef }: OutlinePanelProps) {
   return (
     <div
       ref={itemsRef}
-      className="w-48 flex-shrink-0 border-l border-[#2a2a2a] bg-[#1a1a1a] overflow-y-auto py-4 select-none"
+      className="w-48 flex-shrink-0 border-l border-[var(--border-color)] bg-[var(--bg-secondary)] overflow-y-auto py-4 select-none"
     >
-      <div className="px-3 mb-2 text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+      <div className="px-3 mb-2 text-[10px] uppercase tracking-wider text-[var(--text-secondary)] font-semibold">
         Outline
       </div>
       <div className="space-y-0.5">
@@ -101,8 +101,8 @@ export function OutlinePanel({ blocks, containerRef }: OutlinePanelProps) {
               levelPadding[item.level] || 'pl-2',
               levelSize[item.level] || 'text-xs',
               activeId === item.id
-                ? 'text-blue-400 bg-[#2a2a2a]'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-[#222]',
+                ? 'text-blue-400 bg-[var(--bg-tertiary)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover)]',
             ].join(' ')}
             title={item.text}
           >

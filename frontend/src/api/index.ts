@@ -46,6 +46,11 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(blocks),
     }),
+  patchBlocks: (id: string, blocks: Block[]) =>
+    fetchJSON<{ ok: boolean }>(`/api/pages/${id}/blocks`, {
+      method: 'PATCH',
+      body: JSON.stringify(blocks),
+    }),
   search: (q: string) => fetchJSON<SearchResult[]>(`/api/search?q=${encodeURIComponent(q)}`),
   getSyncConfig: () => fetchJSON<{ config: SyncConfig | null }>('/api/sync/config'),
   updateSyncConfig: (cfg: Partial<SyncConfig>) =>

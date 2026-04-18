@@ -70,7 +70,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             key={t.id}
             onClick={() => remove(t.id)}
             className={[
-              'px-3 py-2 bg-[#2a2a2a] border border-[#444] border-l-2 rounded text-sm text-gray-200 shadow-lg cursor-pointer select-none',
+              'px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] border-l-2 rounded text-sm text-[var(--text-primary)] shadow-lg cursor-pointer select-none',
               typeBorder[t.type],
             ].join(' ')}
             title="Click to dismiss"

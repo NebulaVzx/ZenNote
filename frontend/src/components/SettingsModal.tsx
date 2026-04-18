@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { X, Cloud, Sparkles, Trash2, Edit2, Plus, History } from 'lucide-react';
+import { X, Cloud, Sparkles, Trash2, Edit2, Plus, History, Monitor, Sun, Moon } from 'lucide-react';
 import { api } from '../api';
 import type { SyncConfig, AIConfig } from '../types';
 
-type TabKey = 'sync' | 'ai' | 'history';
+type TabKey = 'sync' | 'ai' | 'history' | 'appearance';
 
 interface Snapshot {
   id: string;
@@ -16,6 +16,8 @@ interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
   activePageId?: string;
+  theme: 'light' | 'dark' | 'system';
+  onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
 }
 
 const emptyAIConfig: Partial<AIConfig> = {
@@ -29,7 +31,7 @@ const emptyAIConfig: Partial<AIConfig> = {
   is_default: 0,
 };
 
-export function SettingsModal({ open, onClose, activePageId }: SettingsModalProps) {
+export function SettingsModal({ open, onClose, activePageId, theme, onThemeChange }: SettingsModalProps) {
   const [tab, setTab] = useState<TabKey>('sync');
 
   // Sync tab state
@@ -175,39 +177,46 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md bg-[#1e1e1e] rounded-lg border border-[#333] shadow-xl p-6">
+      <div className="w-full max-w-md bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] shadow-xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-gray-200">
-            {tab === 'sync' && <Cloud size={18} className="text-gray-400" />}
-            {tab === 'ai' && <Sparkles size={18} className="text-gray-400" />}
-            {tab === 'history' && <History size={18} className="text-gray-400" />}
+          <div className="flex items-center gap-2 text-[var(--text-primary)]">
+            {tab === 'sync' && <Cloud size={18} className="text-[var(--text-secondary)]" />}
+            {tab === 'ai' && <Sparkles size={18} className="text-[var(--text-secondary)]" />}
+            {tab === 'history' && <History size={18} className="text-[var(--text-secondary)]" />}
+            {tab === 'appearance' && <Sun size={18} className="text-[var(--text-secondary)]" />}
             <h2 className="text-base font-medium">
-              {tab === 'sync' ? 'Cloud Sync Settings' : tab === 'ai' ? 'AI Settings' : 'Version History'}
+              {tab === 'sync' ? 'Cloud Sync Settings' : tab === 'ai' ? 'AI Settings' : tab === 'history' ? 'Version History' : 'Appearance'}
             </h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
+          <button onClick={onClose} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
             <X size={18} />
           </button>
         </div>
 
-        <div className="flex gap-4 mb-4 border-b border-[#333] pb-2">
+        <div className="flex gap-4 mb-4 border-b border-[var(--border-color)] pb-2">
           <button
             onClick={() => setTab('sync')}
-            className={`text-sm pb-1 ${tab === 'sync' ? 'text-blue-500 border-b border-blue-500' : 'text-gray-400 hover:text-gray-200'}`}
+            className={`text-sm pb-1 ${tab === 'sync' ? 'text-blue-500 border-b border-blue-500' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
           >
             Cloud Sync
           </button>
           <button
             onClick={() => setTab('ai')}
-            className={`text-sm pb-1 ${tab === 'ai' ? 'text-blue-500 border-b border-blue-500' : 'text-gray-400 hover:text-gray-200'}`}
+            className={`text-sm pb-1 ${tab === 'ai' ? 'text-blue-500 border-b border-blue-500' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
           >
             AI Config
           </button>
           <button
             onClick={() => setTab('history')}
-            className={`text-sm pb-1 ${tab === 'history' ? 'text-blue-500 border-b border-blue-500' : 'text-gray-400 hover:text-gray-200'}`}
+            className={`text-sm pb-1 ${tab === 'history' ? 'text-blue-500 border-b border-blue-500' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
           >
             History
+          </button>
+          <button
+            onClick={() => setTab('appearance')}
+            className={`text-sm pb-1 ${tab === 'appearance' ? 'text-blue-500 border-b border-blue-500' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+          >
+            Appearance
           </button>
         </div>
 
@@ -215,67 +224,67 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
           <>
             <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Endpoint (optional for AWS)</label>
+                <label className="block text-xs text-[var(--text-secondary)] mb-1">Endpoint (optional for AWS)</label>
                 <input
                   type="text"
                   value={syncConfig.endpoint || ''}
                   onChange={(e) => updateSync('endpoint', e.target.value)}
                   placeholder="https://s3.amazonaws.com"
-                  className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Region</label>
+                  <label className="block text-xs text-[var(--text-secondary)] mb-1">Region</label>
                   <input
                     type="text"
                     value={syncConfig.region || ''}
                     onChange={(e) => updateSync('region', e.target.value)}
                     placeholder="us-east-1"
-                    className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Bucket</label>
+                  <label className="block text-xs text-[var(--text-secondary)] mb-1">Bucket</label>
                   <input
                     type="text"
                     value={syncConfig.bucket || ''}
                     onChange={(e) => updateSync('bucket', e.target.value)}
                     placeholder="my-bucket"
-                    className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Prefix</label>
+                <label className="block text-xs text-[var(--text-secondary)] mb-1">Prefix</label>
                 <input
                   type="text"
                   value={syncConfig.prefix || ''}
                   onChange={(e) => updateSync('prefix', e.target.value)}
                   placeholder="zennote/desktop"
-                  className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Access Key ID</label>
+                <label className="block text-xs text-[var(--text-secondary)] mb-1">Access Key ID</label>
                 <input
                   type="text"
                   value={syncConfig.access_key_id || ''}
                   onChange={(e) => updateSync('access_key_id', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Secret Access Key</label>
+                <label className="block text-xs text-[var(--text-secondary)] mb-1">Secret Access Key</label>
                 <input
                   type="password"
                   value={syncConfig.secret_access_key || ''}
                   onChange={(e) => updateSync('secret_access_key', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="flex items-center gap-2 text-sm text-gray-300">
+                <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
                   <input
                     type="checkbox"
                     checked={!!syncConfig.auto_sync}
@@ -286,13 +295,13 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
                 </label>
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Interval (seconds)</label>
+                <label className="block text-xs text-[var(--text-secondary)] mb-1">Interval (seconds)</label>
                 <input
                   type="number"
                   min={60}
                   value={syncConfig.sync_interval || 300}
                   onChange={(e) => updateSync('sync_interval', parseInt(e.target.value, 10) || 300)}
-                  className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                 />
               </div>
             </div>
@@ -308,7 +317,7 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
               <button
                 onClick={handleSyncTest}
                 disabled={syncLoading}
-                className="px-4 py-2 text-sm rounded bg-[#2a2a2a] text-gray-200 hover:bg-[#333] disabled:opacity-50"
+                className="px-4 py-2 text-sm rounded bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--hover)] disabled:opacity-50"
               >
                 Test Connection
               </button>
@@ -332,30 +341,30 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
                     {aiConfigs.map((cfg) => (
                       <div
                         key={cfg.id}
-                        className="flex items-center justify-between px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded"
+                        className="flex items-center justify-between px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded"
                       >
                         <div className="min-w-0">
-                          <div className="text-sm text-gray-200 truncate">
+                          <div className="text-sm text-[var(--text-primary)] truncate">
                             {cfg.name}
                             {cfg.is_default ? (
                               <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-blue-600/20 text-blue-400 rounded">Default</span>
                             ) : null}
                           </div>
-                          <div className="text-xs text-gray-500 truncate">
+                          <div className="text-xs text-[var(--text-secondary)] truncate">
                             {cfg.provider} / {cfg.model}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 ml-2">
                           <button
                             onClick={() => startEditAI(cfg)}
-                            className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-[#333] rounded"
+                            className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover)] rounded"
                             title="Edit"
                           >
                             <Edit2 size={14} />
                           </button>
                           <button
                             onClick={() => handleAIDelete(cfg.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-[#333] rounded"
+                            className="p-1.5 text-[var(--text-secondary)] hover:text-red-400 hover:bg-[var(--hover)] rounded"
                             title="Delete"
                           >
                             <Trash2 size={14} />
@@ -364,12 +373,12 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
                       </div>
                     ))}
                     {aiConfigs.length === 0 && (
-                      <div className="text-sm text-gray-500 text-center py-4">No AI configs yet.</div>
+                      <div className="text-sm text-[var(--text-secondary)] text-center py-4">No AI configs yet.</div>
                     )}
                   </div>
                   <button
                     onClick={() => startEditAI()}
-                    className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm rounded bg-[#2a2a2a] text-gray-200 hover:bg-[#333]"
+                    className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm rounded bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--hover)]"
                   >
                     <Plus size={16} /> Add AI Config
                   </button>
@@ -379,22 +388,22 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
               {aiEditingId && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Name</label>
+                    <label className="block text-xs text-[var(--text-secondary)] mb-1">Name</label>
                     <input
                       type="text"
                       value={aiDraft.name || ''}
                       onChange={(e) => setAiDraft((d) => ({ ...d, name: e.target.value }))}
                       placeholder="My OpenAI"
-                      className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Provider</label>
+                      <label className="block text-xs text-[var(--text-secondary)] mb-1">Provider</label>
                       <select
                         value={aiDraft.provider || 'openai'}
                         onChange={(e) => setAiDraft((d) => ({ ...d, provider: e.target.value }))}
-                        className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                       >
                         <option value="openai">OpenAI</option>
                         <option value="ollama">Ollama</option>
@@ -402,38 +411,38 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Model</label>
+                      <label className="block text-xs text-[var(--text-secondary)] mb-1">Model</label>
                       <input
                         type="text"
                         value={aiDraft.model || ''}
                         onChange={(e) => setAiDraft((d) => ({ ...d, model: e.target.value }))}
                         placeholder="gpt-4o-mini"
-                        className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Base URL (optional)</label>
+                    <label className="block text-xs text-[var(--text-secondary)] mb-1">Base URL (optional)</label>
                     <input
                       type="text"
                       value={aiDraft.base_url || ''}
                       onChange={(e) => setAiDraft((d) => ({ ...d, base_url: e.target.value }))}
                       placeholder="https://api.openai.com"
-                      className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">API Key</label>
+                    <label className="block text-xs text-[var(--text-secondary)] mb-1">API Key</label>
                     <input
                       type="password"
                       value={aiDraft.api_key || ''}
                       onChange={(e) => setAiDraft((d) => ({ ...d, api_key: e.target.value }))}
-                      className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Temperature</label>
+                      <label className="block text-xs text-[var(--text-secondary)] mb-1">Temperature</label>
                       <input
                         type="number"
                         step={0.1}
@@ -441,22 +450,22 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
                         max={2}
                         value={aiDraft.temperature ?? 0.7}
                         onChange={(e) => setAiDraft((d) => ({ ...d, temperature: parseFloat(e.target.value) }))}
-                        className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Max Tokens</label>
+                      <label className="block text-xs text-[var(--text-secondary)] mb-1">Max Tokens</label>
                       <input
                         type="number"
                         min={1}
                         value={aiDraft.max_tokens ?? 2048}
                         onChange={(e) => setAiDraft((d) => ({ ...d, max_tokens: parseInt(e.target.value, 10) }))}
-                        className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="flex items-center gap-2 text-sm text-gray-300">
+                    <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
                       <input
                         type="checkbox"
                         checked={!!aiDraft.is_default}
@@ -482,13 +491,13 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
                 <button
                   onClick={handleAITest}
                   disabled={aiLoading || aiEditingId.startsWith('new-')}
-                  className="px-4 py-2 text-sm rounded bg-[#2a2a2a] text-gray-200 hover:bg-[#333] disabled:opacity-50"
+                  className="px-4 py-2 text-sm rounded bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--hover)] disabled:opacity-50"
                 >
                   Test Connection
                 </button>
                 <button
                   onClick={() => { setAiEditingId(null); setAiDraft(emptyAIConfig); setAiTestMsg(''); setAiSaveMsg(''); }}
-                  className="px-4 py-2 text-sm rounded bg-[#2a2a2a] text-gray-200 hover:bg-[#333]"
+                  className="px-4 py-2 text-sm rounded bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--hover)]"
                 >
                   Cancel
                 </button>
@@ -508,11 +517,11 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
           <>
             <div className="max-h-[70vh] overflow-y-auto pr-1">
               {!activePageId ? (
-                <div className="text-sm text-gray-500 text-center py-4">请先打开一个页面以查看版本历史</div>
+                <div className="text-sm text-[var(--text-secondary)] text-center py-4">请先打开一个页面以查看版本历史</div>
               ) : historyLoading ? (
-                <div className="text-sm text-gray-500 text-center py-4">加载中...</div>
+                <div className="text-sm text-[var(--text-secondary)] text-center py-4">加载中...</div>
               ) : snapshots.length === 0 ? (
-                <div className="text-sm text-gray-500 text-center py-4">暂无快照。每次保存时会自动创建版本快照。</div>
+                <div className="text-sm text-[var(--text-secondary)] text-center py-4">暂无快照。每次保存时会自动创建版本快照。</div>
               ) : (
                 <div className="space-y-2">
                   {snapshots.map((s) => {
@@ -526,11 +535,11 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
                     return (
                       <div
                         key={s.id}
-                        className="flex items-center justify-between px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded"
+                        className="flex items-center justify-between px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded"
                       >
                         <div className="min-w-0">
-                          <div className="text-sm text-gray-200">{dateStr}</div>
-                          <div className="text-xs text-gray-500">{blockCount} 个块</div>
+                          <div className="text-sm text-[var(--text-primary)]">{dateStr}</div>
+                          <div className="text-xs text-[var(--text-secondary)]">{blockCount} 个块</div>
                         </div>
                         <button
                           onClick={async () => {
@@ -557,7 +566,45 @@ export function SettingsModal({ open, onClose, activePageId }: SettingsModalProp
           </>
         )}
 
-        <div className="mt-4 text-center text-xs text-gray-500">ZenNote v0.3.5</div>
+        {tab === 'appearance' && (
+          <div className="space-y-3">
+            <label className="block text-xs text-[var(--text-secondary)] mb-1">Theme</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => onThemeChange('light')}
+                className={`flex items-center justify-center gap-2 px-3 py-2 rounded border text-sm ${
+                  theme === 'light'
+                    ? 'border-blue-500 bg-blue-600/10 text-blue-400'
+                    : 'border-[var(--border-color)] bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--hover)]'
+                }`}
+              >
+                <Sun size={14} /> Light
+              </button>
+              <button
+                onClick={() => onThemeChange('dark')}
+                className={`flex items-center justify-center gap-2 px-3 py-2 rounded border text-sm ${
+                  theme === 'dark'
+                    ? 'border-blue-500 bg-blue-600/10 text-blue-400'
+                    : 'border-[var(--border-color)] bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--hover)]'
+                }`}
+              >
+                <Moon size={14} /> Dark
+              </button>
+              <button
+                onClick={() => onThemeChange('system')}
+                className={`flex items-center justify-center gap-2 px-3 py-2 rounded border text-sm ${
+                  theme === 'system'
+                    ? 'border-blue-500 bg-blue-600/10 text-blue-400'
+                    : 'border-[var(--border-color)] bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--hover)]'
+                }`}
+              >
+                <Monitor size={14} /> System
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 text-center text-xs text-[var(--text-secondary)]">ZenNote v0.3.6</div>
       </div>
     </div>
   );

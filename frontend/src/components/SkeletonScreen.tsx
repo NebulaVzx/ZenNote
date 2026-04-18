@@ -1,7 +1,7 @@
 function SkeletonLine({ width = '100%', height = '1rem', className = '' }: { width?: string; height?: string; className?: string }) {
   return (
     <div
-      className={`rounded bg-[#2a2a2a] animate-pulse ${className}`}
+      className={`rounded bg-[var(--bg-tertiary)] animate-pulse ${className}`}
       style={{ width, height }}
     />
   );
@@ -32,7 +32,7 @@ export function SkeletonScreen() {
 
         {/* Code block skeleton */}
         <div className="pt-2">
-          <div className="rounded bg-[#1e1e1e] border border-[#2f2f2f] p-4 space-y-2">
+          <div className="rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] p-4 space-y-2">
             <SkeletonLine width="60%" height="0.75rem" />
             <SkeletonLine width="80%" height="0.75rem" />
             <SkeletonLine width="45%" height="0.75rem" />

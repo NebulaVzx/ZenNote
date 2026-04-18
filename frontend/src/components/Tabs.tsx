@@ -12,7 +12,7 @@ export function Tabs({ tabs, activePageId, onSwitch, onClose }: TabsProps) {
   if (tabs.length === 0) return null;
 
   return (
-    <div className="flex items-center h-10 bg-[#191919] border-b border-[#2f2f2f] overflow-x-auto">
+    <div className="flex items-center h-10 bg-[var(--bg-primary)] border-b border-[var(--border-color)] overflow-x-auto">
       {tabs.map((tab) => {
         const active = tab.pageId === activePageId;
         return (
@@ -20,8 +20,8 @@ export function Tabs({ tabs, activePageId, onSwitch, onClose }: TabsProps) {
             key={tab.pageId}
             onClick={() => onSwitch(tab.pageId)}
             className={[
-              'group flex items-center gap-2 px-3 h-full min-w-[120px] max-w-[200px] cursor-pointer border-r border-[#2f2f2f] text-sm select-none',
-              active ? 'bg-[#202020] text-white' : 'text-gray-400 hover:bg-[#1f1f1f]',
+              'group flex items-center gap-2 px-3 h-full min-w-[120px] max-w-[200px] cursor-pointer border-r border-[var(--border-color)] text-sm select-none',
+              active ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]',
             ].join(' ')}
           >
             <span className="truncate flex-1">{tab.title || 'Untitled'}</span>
@@ -30,7 +30,7 @@ export function Tabs({ tabs, activePageId, onSwitch, onClose }: TabsProps) {
                 e.stopPropagation();
                 onClose(tab.pageId);
               }}
-              className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-[#333] rounded"
+              className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-[var(--hover)] rounded"
             >
               <X size={12} />
             </button>

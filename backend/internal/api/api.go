@@ -27,6 +27,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.DELETE("/api/pages/:id/permanent", permanentDeletePage)
 	r.GET("/api/pages/:id/blocks", getBlocks)
 	r.PUT("/api/pages/:id/blocks", updateBlocks)
+	r.PATCH("/api/pages/:id/blocks", patchBlocks)
 	r.PUT("/api/pages/:id/favorite", toggleFavoritePage)
 	r.GET("/api/pages/:id/snapshots", listSnapshots)
 	r.POST("/api/pages/:id/snapshots", createSnapshot)
@@ -384,6 +385,37 @@ func updateBlocks(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+func patchBlocks(c *gin.Context) {
+	pageID := c.Param("id")
+	var blocks []models.Block
+	if err := c.BindJSON(&blocks); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	now := time.Now().UnixMilli()
+	for _, b := range blocks {
+		props := b.Props
+		if props == "" {
+			props = "{}"
+		}
+		_, err := db.DB.Exec("UPDATE blocks SET content = ?, props = ?, updated_at = ? WHERE id = ? AND page_id = ?",
+			b.Content, props, now, b.ID, pageID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	_, err := db.DB.Exec("UPDATE pages SET updated_at = ? WHERE id = ?", now, pageID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 func toggleFavoritePage(c *gin.Context) {
 	id := c.Param("id")
 	var req struct {
@@ -555,7 +587,7 @@ func search(c *gin.Context) {
 }
 
 func healthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.3.4"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.3.6"})
 }
 
 func generateID(prefix string) string {

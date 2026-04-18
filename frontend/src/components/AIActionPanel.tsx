@@ -55,7 +55,7 @@ export function AIActionPanel({ open, loading, onClose, onAction }: Props) {
 
   const renderItem = (item: ActionItem, depth = 0) => {
     if (item.type === 'divider') {
-      return <div key={`div-${Math.random()}`} className="h-px bg-[#333] my-1" />;
+      return <div key={`div-${Math.random()}`} className="h-px bg-[var(--border-color)] my-1" />;
     }
 
     if (item.type === 'submenu') {
@@ -65,13 +65,13 @@ export function AIActionPanel({ open, loading, onClose, onAction }: Props) {
           <button
             disabled={loading}
             onClick={() => setExpandedSubmenu(isOpen ? null : item.key)}
-            className="w-full flex items-center justify-between px-2 py-1.5 text-sm text-left text-gray-200 rounded hover:bg-[#333] disabled:opacity-50"
+            className="w-full flex items-center justify-between px-2 py-1.5 text-sm text-left text-[var(--text-primary)] rounded hover:bg-[var(--hover)] disabled:opacity-50"
           >
             <span className="flex items-center gap-2">
-              <span className="text-gray-400">{item.icon}</span>
+              <span className="text-[var(--text-secondary)]">{item.icon}</span>
               <span>{item.label}</span>
             </span>
-            <ChevronRight size={12} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+            <ChevronRight size={12} className={`text-[var(--text-secondary)] transition-transform ${isOpen ? 'rotate-90' : ''}`} />
           </button>
           {isOpen && (
             <div className="pl-4 space-y-0.5">
@@ -87,22 +87,22 @@ export function AIActionPanel({ open, loading, onClose, onAction }: Props) {
         key={item.key}
         disabled={loading}
         onClick={() => handleClick(item)}
-        className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left text-gray-200 rounded hover:bg-[#333] disabled:opacity-50"
+        className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left text-[var(--text-primary)] rounded hover:bg-[var(--hover)] disabled:opacity-50"
       >
-        <span className="text-gray-400">{item.icon}</span>
+        <span className="text-[var(--text-secondary)]">{item.icon}</span>
         <span>{item.label}</span>
       </button>
     );
   };
 
   return (
-    <div className="absolute z-50 w-56 bg-[#252525] border border-[#333] rounded-md shadow-xl py-2">
-      <div className="flex items-center justify-between px-3 pb-2 border-b border-[#333]">
-        <span className="text-xs text-gray-400">Ask AI</span>
+    <div className="absolute z-50 w-56 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-md shadow-xl py-2">
+      <div className="flex items-center justify-between px-3 pb-2 border-b border-[var(--border-color)]">
+        <span className="text-xs text-[var(--text-secondary)]">Ask AI</span>
         {loading ? (
-          <Loader2 size={14} className="animate-spin text-gray-400" />
+          <Loader2 size={14} className="animate-spin text-[var(--text-secondary)]" />
         ) : (
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
+          <button onClick={onClose} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
             <X size={14} />
           </button>
         )}

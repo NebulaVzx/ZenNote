@@ -24,15 +24,15 @@ export function ConfirmModal({
       onClick={onCancel}
     >
       <div
-        className="bg-[#1e1e1e] rounded-lg border border-[#333] shadow-xl p-6 max-w-sm w-full mx-4"
+        className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] shadow-xl p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="text-base font-medium text-gray-100 mb-2">{title}</div>
-        <div className="text-sm text-gray-400 mb-6">{message}</div>
+        <div className="text-base font-medium text-[var(--text-primary)] mb-2">{title}</div>
+        <div className="text-sm text-[var(--text-secondary)] mb-6">{message}</div>
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-3 py-1.5 text-sm bg-[#2a2a2a] hover:bg-[#333] text-gray-200 rounded transition-colors"
+            className="px-3 py-1.5 text-sm bg-[var(--bg-tertiary)] hover:bg-[var(--hover)] text-[var(--text-primary)] rounded transition-colors"
           >
             {cancelText}
           </button>

@@ -36,8 +36,43 @@ function App() {
       return true;
     }
   });
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
+    try {
+      return (localStorage.getItem('zennote.theme') as 'light' | 'dark' | 'system') || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
   const { success, error: showError } = useToast();
   const pageMap = useRef<Record<string, Page>>({});
+
+  // Apply theme
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      root.classList.toggle('dark', prefersDark);
+      root.classList.toggle('light', !prefersDark);
+    } else {
+      root.classList.toggle('dark', theme === 'dark');
+      root.classList.toggle('light', theme === 'light');
+    }
+    try {
+      localStorage.setItem('zennote.theme', theme);
+    } catch {}
+  }, [theme]);
+
+  // Listen for system theme changes
+  useEffect(() => {
+    if (theme !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
+      document.documentElement.classList.toggle('dark', e.matches);
+      document.documentElement.classList.toggle('light', !e.matches);
+    };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [theme]);
 
   // Load pages
   const refreshPages = useCallback(() => {
@@ -341,7 +376,7 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#191919]" onDragOver={handleDragOver} onDrop={handleDrop}>
+    <div className="flex flex-col h-full w-full bg-[var(--bg-primary)]" onDragOver={handleDragOver} onDrop={handleDrop}>
       <TitleBar
         onSettings={() => setSettingsOpen(true)}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
@@ -419,9 +454,9 @@ function App() {
                 }}
               />
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+              <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-secondary)]">
                 <div className="text-6xl mb-4">📝</div>
-                <div className="text-lg font-medium">欢迎使用 ZenNote</div>
+                <div className="text-lg font-medium text-[var(--text-primary)]">欢迎使用 ZenNote</div>
                 <div className="text-sm mt-1">选择一个页面或按 Ctrl+P 搜索</div>
               </div>
             )}
@@ -429,7 +464,7 @@ function App() {
         </div>
       </div>
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onSelect={(pageId, blockId) => { openPage(pageId); setPendingBlockId(blockId); }} />
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} activePageId={activePageId} />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} activePageId={activePageId} theme={theme} onThemeChange={setTheme} />
       <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
