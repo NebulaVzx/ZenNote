@@ -161,11 +161,31 @@ fn try_start_backend() -> Option<Child> {
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
 
-    let child = cmd.spawn().ok()?;
+    let mut child = cmd.spawn().ok()?;
 
-    // Allow the backend a moment to bind to :8080
-    thread::sleep(Duration::from_millis(800));
-    Some(child)
+    // Wait for the backend to actually bind to :8080 (max 30s).
+    // On first launch SQLite schema init + Windows firewall popup
+    // can take several seconds; a fixed 800ms sleep is not enough.
+    let mut ready = false;
+    for _ in 0..120 {
+        thread::sleep(Duration::from_millis(250));
+        if TcpStream::connect_timeout(
+            &"127.0.0.1:8080".parse().unwrap(),
+            Duration::from_millis(100),
+        )
+        .is_ok()
+        {
+            ready = true;
+            break;
+        }
+    }
+
+    if ready {
+        Some(child)
+    } else {
+        let _ = child.kill();
+        None
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
