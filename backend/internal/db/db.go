@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS pages (
 	icon TEXT DEFAULT '',
 	sort_order INTEGER DEFAULT 0,
 	is_favorite INTEGER DEFAULT 0,
+	deleted_at INTEGER DEFAULT 0,
 	file_path TEXT,
 	frontmatter TEXT,
 	created_at INTEGER,
