@@ -30,7 +30,6 @@ function App() {
   const [pendingBlockId, setPendingBlockId] = useState<string | null>(null);
   const { success, error: showError } = useToast();
   const pageMap = useRef<Record<string, Page>>({});
-  const prevBackendOnline = useRef(false);
 
   // Load pages
   const refreshPages = useCallback(() => {
@@ -46,11 +45,42 @@ function App() {
       safeData.forEach((p) => (map[p.id] = p));
       safeTrash.forEach((p) => (map[p.id] = p));
       pageMap.current = map;
+      return safeData.length;
     });
   }, []);
 
+  // Mount-time data polling: try to load pages immediately and retry every
+  // second until data arrives. This is completely independent of the health
+  // check so that even if backendOnline state transitions are missed or
+  // delayed, the sidebar will still populate as soon as the API is reachable.
   useEffect(() => {
-    refreshPages();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+    let attemptCount = 0;
+    const MAX_ATTEMPTS = 60; // 60 seconds max
+
+    const tryLoad = async () => {
+      if (cancelled) return;
+      attemptCount++;
+      try {
+        const count = await refreshPages();
+        if (!cancelled && count === 0 && attemptCount < MAX_ATTEMPTS) {
+          timeoutId = setTimeout(tryLoad, 1000);
+        }
+      } catch {
+        // refreshPages already catches internally, but be safe
+        if (!cancelled && attemptCount < MAX_ATTEMPTS) {
+          timeoutId = setTimeout(tryLoad, 1000);
+        }
+      }
+    };
+
+    tryLoad();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   // Health check with short timeout so we don't pile up unresolved fetches
@@ -87,14 +117,6 @@ function App() {
       activeController?.abort();
     };
   }, []);
-
-  // Auto-reload pages when backend comes back online
-  useEffect(() => {
-    if (backendOnline && !prevBackendOnline.current) {
-      refreshPages();
-    }
-    prevBackendOnline.current = backendOnline;
-  }, [backendOnline, refreshPages]);
 
   const openPage = useCallback((pageId: string) => {
     const page = pageMap.current[pageId];
