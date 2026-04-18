@@ -153,14 +153,9 @@
 - **状态**：v0.2.3 已实现。标题栏新增折叠按钮，可展开/收起侧边栏。
 - **修复位置**：`frontend/src/components/TitleBar.tsx`、`frontend/src/App.tsx`
 
-### 28. 暗色 / 亮色主题
-- **现状**：仅暗色主题，所有颜色硬编码
-- **对标**：Notion / 语雀 / 思源均支持亮暗切换
-- **难度**：L | **影响**：Med
-- **建议**：
-  - 将所有 `bg-[#1e1e1e]` / `text-gray-200` 等替换为 CSS 变量
-  - Tailwind v3 `darkMode: 'class'` + 主题切换按钮
-  - 此为重构级任务，建议单独迭代
+### 28. 暗色 / 亮色主题 [FIXED ✅]
+- **状态**：v0.3.6 已实现。新增 Light / Dark / System 三种主题模式。`index.css` 定义 `.light` / `.dark` CSS 变量集合，`tailwind.config.js` 启用 `darkMode: 'class'`。所有组件的硬编码暗色（`bg-[#191919]`、`text-gray-200` 等）批量替换为 CSS 变量（`--bg-primary`、`--text-secondary` 等）。SettingsModal 新增 Appearance 标签页，支持一键切换。主题偏好持久化到 `localStorage`。
+- **修复位置**：`frontend/src/index.css`、`frontend/tailwind.config.js`、`frontend/src/App.tsx`、`frontend/src/components/SettingsModal.tsx` 及全局组件
 
 ### 29. 窗口尺寸记忆 [FIXED ✅]
 - **状态**：v0.2.3 已实现。Rust 壳在关闭窗口时保存窗口尺寸和位置，下次启动自动恢复。
@@ -204,13 +199,9 @@
 - **难度**：XL | **影响**：Med
 - **建议**：引入 `react-window` 或 `@tanstack/virtual`，块数 > 100 时启用
 
-### 35. 防抖保存优化
-- **现状**：1.5s 定时全量 PUT blocks
-- **对标**：Notion 增量保存；语雀自动保存
-- **难度**：L | **影响**：Med
-- **建议**：
-  - 仅发送变更的 block（diff 检测）
-  - 或切换为单 block PUT 接口，修改即保存
+### 35. 防抖保存优化 [FIXED ✅]
+- **状态**：v0.3.6 已实现。后端新增 `PATCH /api/pages/:id/blocks` 增量更新接口，仅更新指定的 block。前端 Editor 新增 `lastSavedBlocksRef`，保存前对比当前 blocks 与上次保存状态，仅收集内容有变化的 block 发送。若无结构性变更（增删块、排序），走 `PATCH` 只发变化块；有结构性变更则走 `PUT` 全量替换。Markdown 文件同步逻辑保持不变。
+- **修复位置**：`backend/internal/api/api.go`、`frontend/src/components/Editor.tsx`、`frontend/src/api/index.ts`
 
 ### 36. 后端健康检查 + 重连 [FIXED ✅]
 - **状态**：v0.2.7 已实现。前端 3 秒轮询 `/api/health`，断连时显示浮层并提供 "Restart Backend" 按钮（Tauri command）。
@@ -255,12 +246,10 @@
 
 ### P2 — 中期规划 (功能完善)
 4. **版本历史** (#32) — L 级。数据安全底线功能，每保存 snapshot 到 `page_snapshots` 表。
-5. **暗亮主题** (#28) — L 级。用户呼声高，需将所有硬编码颜色改为 CSS 变量 + Tailwind `darkMode: 'class'`。
-6. **空状态引导** (#24) — M 级。首次启动展示模板选择（空白页 / 日记 / 读书笔记 / 会议记录），降低上手门槛。
-7. **防抖保存优化** (#35) — L 级。当前 1.5s 全量 PUT，改为仅发送变更 block 或单 block PUT。
-8. **替换功能** (#19) — M 级。`Ctrl+H` 页面内搜索替换，对标 VS Code 标准体验。
-9. **搜索历史** (#18) — S 级。localStorage 存最近 10 条，空状态展示。投入极小。
-10. **其他格式导出** (#22b) — L 级。Markdown 已支持，后续 PDF / HTML / ZIP。
+5. **空状态引导** (#24) — M 级。首次启动展示模板选择（空白页 / 日记 / 读书笔记 / 会议记录），降低上手门槛。
+6. **替换功能** (#19) — M 级。`Ctrl+H` 页面内搜索替换，对标 VS Code 标准体验。
+7. **搜索历史** (#18) — S 级。localStorage 存最近 10 条，空状态展示。投入极小。
+8. **其他格式导出** (#22b) — L 级。Markdown 已支持，后续 PDF / HTML / ZIP。
 
 ### P3 — 远期规划 (差异化)
 11. **表格块** (#5) — XL 级。可先以 CSV 渲染简化实现。
