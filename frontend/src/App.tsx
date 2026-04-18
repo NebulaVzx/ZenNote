@@ -26,10 +26,11 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [backendOnline, setBackendOnline] = useState(true);
+  const [backendOnline, setBackendOnline] = useState(false);
   const [pendingBlockId, setPendingBlockId] = useState<string | null>(null);
   const { success, error: showError } = useToast();
   const pageMap = useRef<Record<string, Page>>({});
+  const prevBackendOnline = useRef(false);
 
   // Load pages
   const refreshPages = useCallback(() => {
@@ -62,6 +63,14 @@ function App() {
     const id = setInterval(checkHealth, 3000);
     return () => clearInterval(id);
   }, []);
+
+  // Auto-reload pages when backend comes back online
+  useEffect(() => {
+    if (backendOnline && !prevBackendOnline.current) {
+      refreshPages();
+    }
+    prevBackendOnline.current = backendOnline;
+  }, [backendOnline, refreshPages]);
 
   const openPage = useCallback((pageId: string) => {
     const page = pageMap.current[pageId];
@@ -366,8 +375,8 @@ function App() {
       {!backendOnline && (
         <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center">
           <div className="bg-[#1e1e1e] border border-[#333] rounded-lg p-6 max-w-sm w-full text-center shadow-xl">
-            <div className="text-lg font-medium text-white mb-2">Backend Disconnected</div>
-            <div className="text-sm text-gray-400 mb-4">The local backend is not responding. Please restart it.</div>
+            <div className="text-lg font-medium text-white mb-2">Backend Not Ready</div>
+            <div className="text-sm text-gray-400 mb-4">The local backend is still starting up. Please wait a moment, or restart it if the issue persists.</div>
             <button
               onClick={async () => {
                 try {
