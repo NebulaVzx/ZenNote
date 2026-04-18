@@ -22,6 +22,7 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [pageSearchOpen, setPageSearchOpen] = useState(false);
   const [pageSearchQuery, setPageSearchQuery] = useState('');
+  const [pageSearchReplaceQuery, setPageSearchReplaceQuery] = useState('');
   const [pageSearchTotal, setPageSearchTotal] = useState(0);
   const [pageSearchCurrentIndex, setPageSearchCurrentIndex] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -252,6 +253,10 @@ function App() {
         e.preventDefault();
         setPageSearchOpen(true);
       }
+      if (e.ctrlKey && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        setPageSearchOpen(true);
+      }
       if (e.ctrlKey && e.key === '/') {
         e.preventDefault();
         setShortcutsOpen(true);
@@ -282,9 +287,12 @@ function App() {
     }
   };
 
+  const editorReplaceRef = useRef<((query: string, replacement: string, all: boolean) => void) | null>(null);
+
   const handlePageSearchClose = () => {
     setPageSearchOpen(false);
     setPageSearchQuery('');
+    setPageSearchReplaceQuery('');
     setPageSearchCurrentIndex(0);
   };
 
@@ -296,6 +304,16 @@ function App() {
   const handlePageSearchPrev = () => {
     if (pageSearchTotal === 0) return;
     setPageSearchCurrentIndex((prev) => (prev - 1 < 0 ? pageSearchTotal - 1 : prev - 1));
+  };
+
+  const handleReplace = () => {
+    if (!pageSearchQuery.trim() || !editorReplaceRef.current) return;
+    editorReplaceRef.current(pageSearchQuery, pageSearchReplaceQuery, false);
+  };
+
+  const handleReplaceAll = () => {
+    if (!pageSearchQuery.trim() || !editorReplaceRef.current) return;
+    editorReplaceRef.current(pageSearchQuery, pageSearchReplaceQuery, true);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -353,11 +371,15 @@ function App() {
             <PageSearch
               query={pageSearchQuery}
               onQueryChange={setPageSearchQuery}
+              replaceQuery={pageSearchReplaceQuery}
+              onReplaceChange={setPageSearchReplaceQuery}
               current={pageSearchTotal > 0 ? pageSearchCurrentIndex + 1 : 0}
               total={pageSearchTotal}
               onNext={handlePageSearchNext}
               onPrev={handlePageSearchPrev}
               onClose={handlePageSearchClose}
+              onReplace={handleReplace}
+              onReplaceAll={handleReplaceAll}
             />
           )}
           <div className="flex-1 flex flex-col min-h-0">
@@ -376,6 +398,7 @@ function App() {
                 onEditorInput={() => setPageSearchQuery('')}
                 jumpToBlockId={pendingBlockId}
                 onJumpToBlockDone={() => setPendingBlockId(null)}
+                onReplaceRef={(fn) => { editorReplaceRef.current = fn; }}
               />
             ) : !hasLaunched ? (
               <WelcomeScreen
