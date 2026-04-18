@@ -12,6 +12,8 @@ import { WelcomeScreen, createTemplateBlocks } from './components/WelcomeScreen'
 import { useToast } from './components/ToastProvider';
 import { api } from './api';
 import { parseMarkdown, generateMarkdown } from './utils/markdown';
+import { generatePageHTML } from './utils/export';
+import { save } from '@tauri-apps/plugin-dialog';
 import type { Page, Tab } from './types';
 
 function App() {
@@ -192,6 +194,25 @@ function App() {
       success('Exported to Markdown');
     } catch (e: any) {
       showError(e.message || 'Failed to export markdown');
+    }
+  }, [activePageId, success, showError]);
+
+  const handleExportHTML = useCallback(async () => {
+    if (!activePageId) return;
+    try {
+      const blocks = await api.getBlocks(activePageId);
+      const page = pageMap.current[activePageId];
+      if (!page) return;
+      const html = generatePageHTML(page, blocks);
+      const filePath = await save({
+        filters: [{ name: 'HTML', extensions: ['html'] }],
+        defaultPath: `${page.title || 'Untitled'}.html`,
+      });
+      if (!filePath) return;
+      await invoke('save_markdown_file', { filePath, content: html });
+      success('Exported to HTML');
+    } catch (e: any) {
+      showError(e.message || 'Failed to export HTML');
     }
   }, [activePageId, success, showError]);
 
@@ -382,6 +403,7 @@ function App() {
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
         onOpenMarkdown={handleOpenMarkdownFile}
         onExportMarkdown={handleExportMarkdown}
+        onExportHTML={handleExportHTML}
       />
       <div className="flex flex-1 overflow-hidden">
         {sidebarOpen && (

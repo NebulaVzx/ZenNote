@@ -154,6 +154,51 @@ export function Editor({
     }
   }, [loaded, title]);
 
+  const replaceInBlocks = useCallback((query: string, replacement: string, all: boolean) => {
+    if (!query.trim()) return;
+    const regex = new RegExp(escapeRegExp(query), 'gi');
+    let matchIndex = 0;
+    let replacedAny = false;
+
+    const newBlocks = blocks.map((block) => {
+      if (!regex.test(block.content)) return block;
+      // Reset lastIndex because regex is global
+      regex.lastIndex = 0;
+
+      if (all) {
+        const newContent = block.content.replace(regex, replacement);
+        if (newContent !== block.content) {
+          replacedAny = true;
+          return { ...block, content: newContent, updated_at: Date.now() };
+        }
+      } else {
+        // Replace only the Nth occurrence across all blocks
+        let count = 0;
+        const newContent = block.content.replace(regex, (match) => {
+          if (count === matchIndex) {
+            count++;
+            matchIndex++;
+            replacedAny = true;
+            return replacement;
+          }
+          count++;
+          matchIndex++;
+          return match;
+        });
+        if (newContent !== block.content) {
+          return { ...block, content: newContent, updated_at: Date.now() };
+        }
+      }
+      return block;
+    });
+
+    if (replacedAny) {
+      history.push(blocks);
+      setBlocks(newBlocks);
+      onEditorInput();
+    }
+  }, [blocks, onEditorInput, history]);
+
   // Register replace function to parent ref
   useEffect(() => {
     onReplaceRef?.(replaceInBlocks);
@@ -685,51 +730,6 @@ export function Editor({
       focusBlockEnd(el);
     }, 0);
   };
-
-  const replaceInBlocks = useCallback((query: string, replacement: string, all: boolean) => {
-    if (!query.trim()) return;
-    const regex = new RegExp(escapeRegExp(query), 'gi');
-    let matchIndex = 0;
-    let replacedAny = false;
-
-    const newBlocks = blocks.map((block) => {
-      if (!regex.test(block.content)) return block;
-      // Reset lastIndex because regex is global
-      regex.lastIndex = 0;
-
-      if (all) {
-        const newContent = block.content.replace(regex, replacement);
-        if (newContent !== block.content) {
-          replacedAny = true;
-          return { ...block, content: newContent, updated_at: Date.now() };
-        }
-      } else {
-        // Replace only the Nth occurrence across all blocks
-        let count = 0;
-        const newContent = block.content.replace(regex, (match) => {
-          if (count === matchIndex) {
-            count++;
-            matchIndex++;
-            replacedAny = true;
-            return replacement;
-          }
-          count++;
-          matchIndex++;
-          return match;
-        });
-        if (newContent !== block.content) {
-          return { ...block, content: newContent, updated_at: Date.now() };
-        }
-      }
-      return block;
-    });
-
-    if (replacedAny) {
-      history.push(blocks);
-      setBlocks(newBlocks);
-      onEditorInput();
-    }
-  }, [blocks, onEditorInput, history]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, idx: number) => {
     const el = blockRefs.current[idx];

@@ -117,11 +117,9 @@
 - **状态**：v0.3.0 已实现。支持通过 File 菜单或拖拽打开外部 `.md` 文件，在块编辑器中编辑后自动保存回原文件；支持导出任意页面为 Markdown（含 frontmatter）。新增 `pages.file_path` 和 `pages.frontmatter` 字段。
 - **修复位置**：`frontend/src/utils/markdown.ts`、`frontend/src/components/TitleBar.tsx`、`frontend/src/App.tsx`、`src-tauri/src/lib.rs`
 
-### 22b. 其他格式导出
-- **现状**：仅支持 Markdown
-- **对标**：Notion 导出 PDF / HTML；语雀导出多种格式；思源导出 .sy.zip
-- **难度**：L | **影响**：Med
-- **建议**：后续支持整页/整工作区导出为 ZIP（含图片 assets）
+### 22b. 其他格式导出 [FIXED ✅]
+- **状态**：v0.3.7 已实现 HTML 导出。File 菜单新增 "Export as HTML..."，将当前页面导出为独立 HTML 文件，含所有块类型的完整渲染和内置响应式 CSS（支持 `prefers-color-scheme: dark`）。
+- **修复位置**：`frontend/src/utils/export.ts`、`frontend/src/components/TitleBar.tsx`、`frontend/src/App.tsx`
 
 ---
 
@@ -243,7 +241,7 @@
 > - **防抖保存优化** (#35) — v0.3.6 已完成
 
 ### P2 — 剩余未开始
-8. **其他格式导出** (#22b) — L 级。Markdown 已支持，后续 PDF / HTML / ZIP。
+> P2 已全部完成 ✅ (v0.3.7)
 
 ### P3 — 远期规划 (差异化)
 11. **表格块** (#5) — XL 级。可先以 CSV 渲染简化实现。
@@ -255,4 +253,4 @@
 
 ---
 
-> 文档生成时间：2026-04-18 | 当前版本：v0.3.6
+> 文档生成时间：2026-04-18 | 当前版本：v0.3.7

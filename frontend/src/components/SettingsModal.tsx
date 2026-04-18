@@ -604,7 +604,7 @@ export function SettingsModal({ open, onClose, activePageId, theme, onThemeChang
           </div>
         )}
 
-        <div className="mt-4 text-center text-xs text-[var(--text-secondary)]">ZenNote v0.3.6</div>
+        <div className="mt-4 text-center text-xs text-[var(--text-secondary)]">ZenNote v0.3.7</div>
       </div>
     </div>
   );

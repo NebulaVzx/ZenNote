@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Minus, Square, X, Settings, PanelLeft, Download, Upload } from 'lucide-react';
+import { Minus, Square, X, Settings, PanelLeft, Download, Upload, FileCode } from 'lucide-react';
 import { SyncStatus } from './SyncStatus';
 
 interface TitleBarProps {
@@ -8,9 +8,10 @@ interface TitleBarProps {
   onToggleSidebar?: () => void;
   onOpenMarkdown?: () => void;
   onExportMarkdown?: () => void;
+  onExportHTML?: () => void;
 }
 
-export function TitleBar({ onSettings, onToggleSidebar, onOpenMarkdown, onExportMarkdown }: TitleBarProps) {
+export function TitleBar({ onSettings, onToggleSidebar, onOpenMarkdown, onExportMarkdown, onExportHTML }: TitleBarProps) {
   let appWindow: ReturnType<typeof getCurrentWindow> | undefined;
   try {
     appWindow = getCurrentWindow();
@@ -60,6 +61,12 @@ export function TitleBar({ onSettings, onToggleSidebar, onOpenMarkdown, onExport
                 className="w-full px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] flex items-center gap-2"
               >
                 <Download size={14} /> Export as Markdown...
+              </button>
+              <button
+                onClick={() => { setFileMenuOpen(false); onExportHTML?.(); }}
+                className="w-full px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] flex items-center gap-2"
+              >
+                <FileCode size={14} /> Export as HTML...
               </button>
             </div>
           )}
