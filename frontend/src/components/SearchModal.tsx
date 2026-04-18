@@ -1,12 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, FileText } from 'lucide-react';
+import { Search, FileText, Clock, X } from 'lucide-react';
 import { api } from '../api';
 import type { SearchResult } from '../types';
+
+const HISTORY_KEY = 'zennote.searchHistory';
+const MAX_HISTORY = 10;
 
 function stripHtml(html: string): string {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
   return tmp.textContent || '';
+}
+
+function loadHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+function saveHistory(history: string[]) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
 }
 
 interface SearchModalProps {
@@ -18,12 +36,14 @@ interface SearchModalProps {
 export function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [history, setHistory] = useState<string[]>(loadHistory);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setQuery('');
       setResults([]);
+      setHistory(loadHistory());
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
@@ -34,7 +54,20 @@ export function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
       return;
     }
     const t = setTimeout(() => {
-      api.search(query).then(setResults).catch(() => setResults([]));
+      api
+        .search(query)
+        .then((res) => {
+          setResults(res);
+          // 搜索有结果时加入历史
+          if (res.length > 0) {
+            setHistory((prev) => {
+              const next = [query, ...prev.filter((h) => h !== query)].slice(0, MAX_HISTORY);
+              saveHistory(next);
+              return next;
+            });
+          }
+        })
+        .catch(() => setResults([]));
     }, 200);
     return () => clearTimeout(t);
   }, [query]);
@@ -46,6 +79,19 @@ export function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
     if (isOpen) window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
+
+  const removeHistoryItem = (item: string) => {
+    setHistory((prev) => {
+      const next = prev.filter((h) => h !== item);
+      saveHistory(next);
+      return next;
+    });
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    saveHistory([]);
+  };
 
   if (!isOpen) return null;
 
@@ -63,17 +109,53 @@ export function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search pages and blocks..."
+            placeholder="搜索页面和块..."
             className="flex-1 bg-transparent outline-none text-gray-200 placeholder-gray-500"
           />
-          <span className="text-xs text-gray-500">ESC to close</span>
+          <span className="text-xs text-gray-500">ESC 关闭</span>
         </div>
         <div className="max-h-[50vh] overflow-y-auto">
           {results.length === 0 && query.trim() !== '' && (
-            <div className="px-4 py-6 text-sm text-gray-500 text-center">No results found</div>
+            <div className="px-4 py-6 text-sm text-gray-500 text-center">未找到结果</div>
           )}
-          {results.length === 0 && query.trim() === '' && (
-            <div className="px-4 py-6 text-sm text-gray-500 text-center">Type to search</div>
+          {results.length === 0 && query.trim() === '' && history.length > 0 && (
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-500 uppercase tracking-wider">最近搜索</span>
+                <button
+                  onClick={clearHistory}
+                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  清除全部
+                </button>
+              </div>
+              <div className="space-y-0.5">
+                {history.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center justify-between group"
+                  >
+                    <button
+                      onClick={() => setQuery(item)}
+                      className="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm text-gray-300 rounded hover:bg-[#2a2a2a] text-left"
+                    >
+                      <Clock size={14} className="text-gray-500" />
+                      <span className="truncate">{item}</span>
+                    </button>
+                    <button
+                      onClick={() => removeHistoryItem(item)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-gray-300 rounded transition-opacity"
+                      title="删除"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {results.length === 0 && query.trim() === '' && history.length === 0 && (
+            <div className="px-4 py-6 text-sm text-gray-500 text-center">输入关键词开始搜索</div>
           )}
           {results.map((r, idx) => (
             <button
