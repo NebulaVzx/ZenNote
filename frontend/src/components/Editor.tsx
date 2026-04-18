@@ -10,6 +10,7 @@ import 'highlight.js/styles/github-dark.css';
 import { generateMarkdown } from '../utils/markdown';
 import { SkeletonScreen } from './SkeletonScreen';
 import { OutlinePanel } from './OutlinePanel';
+import { useBlockHistory } from '../hooks/useBlockHistory';
 import type { Block, BlockType } from '../types';
 
 interface EditorProps {
@@ -108,6 +109,9 @@ export function Editor({
   const [blockMenuIdx, setBlockMenuIdx] = useState<number | null>(null);
   const [blockMenuPos, setBlockMenuPos] = useState({ left: 0, top: 0 });
 
+  // Undo/redo history
+  const history = useBlockHistory();
+
   // Emoji picker state
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
 
@@ -133,6 +137,8 @@ export function Editor({
       const safe = data.length ? data : [createEmptyBlock()];
       setBlocks(safe);
       setLoaded(true);
+      history.clear();
+      history.push(safe);
     });
   }, [pageId, createEmptyBlock]);
 
@@ -192,6 +198,28 @@ export function Editor({
       return changed ? next : prev;
     });
   }, []);
+
+  // Undo/redo keyboard shortcuts
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isUndo = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey;
+      const isRedo = (e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey));
+      if (!isUndo && !isRedo) return;
+      e.preventDefault();
+      const restored = isUndo ? history.undo() : history.redo();
+      if (restored) {
+        flushAllBlocks();
+        setBlocks(restored);
+        setActiveIdx(null);
+        setAiGhost(null);
+        setSlashOpen(false);
+        setToolbarVisible(false);
+        setBlockMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [history, flushAllBlocks]);
 
   // Auto save from DOM
   useEffect(() => {
@@ -310,6 +338,7 @@ export function Editor({
   }, [loaded, jumpToBlockId, blocks, onJumpToBlockDone]);
 
   const insertBlock = (afterIdx: number, type: BlockType = 'paragraph') => {
+    history.push(blocks);
     flushBlock(afterIdx);
     setBlocks((prev) => {
       const next = [...prev];
@@ -327,6 +356,7 @@ export function Editor({
   };
 
   const insertBlockBefore = (beforeIdx: number, type: BlockType = 'paragraph') => {
+    history.push(blocks);
     flushBlock(beforeIdx);
     setBlocks((prev) => {
       const next = [...prev];
@@ -413,6 +443,7 @@ export function Editor({
   };
 
   const removeBlock = (idx: number) => {
+    history.push(blocks);
     setBlocks((prev) => {
       if (prev.length <= 1) {
         // Turn the last block back into a paragraph instead of removing it
@@ -433,6 +464,7 @@ export function Editor({
   };
 
   const duplicateBlock = (idx: number) => {
+    history.push(blocks);
     flushBlock(idx);
     setBlocks((prev) => {
       const next = [...prev];
@@ -450,36 +482,43 @@ export function Editor({
 
   const checkMarkdownShortcut = (idx: number, text: string) => {
     if (text === '#') {
+      history.push(blocks);
       updateBlock(idx, { type: 'heading', content: '', props: JSON.stringify({ level: 1 }) });
       setBlockText(idx, '');
       return true;
     }
     if (text === '##') {
+      history.push(blocks);
       updateBlock(idx, { type: 'heading', content: '', props: JSON.stringify({ level: 2 }) });
       setBlockText(idx, '');
       return true;
     }
     if (text === '###') {
+      history.push(blocks);
       updateBlock(idx, { type: 'heading', content: '', props: JSON.stringify({ level: 3 }) });
       setBlockText(idx, '');
       return true;
     }
     if (text === '-') {
+      history.push(blocks);
       updateBlock(idx, { type: 'bullet_list', content: '' });
       setBlockText(idx, '');
       return true;
     }
     if (text === '1.') {
+      history.push(blocks);
       updateBlock(idx, { type: 'numbered_list', content: '' });
       setBlockText(idx, '');
       return true;
     }
     if (text === '[]') {
+      history.push(blocks);
       updateBlock(idx, { type: 'todo_list', content: '', props: JSON.stringify({ checked: false }) });
       setBlockText(idx, '');
       return true;
     }
     if (text === '>') {
+      history.push(blocks);
       updateBlock(idx, { type: 'quote', content: '' });
       setBlockText(idx, '');
       return true;
@@ -527,6 +566,7 @@ export function Editor({
       setAiPanelOpen(true);
       return;
     }
+    history.push(blocks);
     if (item.type === 'divider') {
       updateBlock(idx, { type: 'divider', content: '' });
       setBlockText(idx, '');
@@ -597,6 +637,7 @@ export function Editor({
       setAiGhost(null);
       return;
     }
+    history.push(blocks);
     flushBlock(idx);
     setBlocks((prev) => {
       const next = [...prev];
@@ -690,6 +731,7 @@ export function Editor({
             }
           });
           if (toDelete.length > 0) {
+            history.push(blocks);
             setBlocks((prev) => {
               const next = prev.filter((_, i) => !toDelete.includes(i));
               if (next.length === 0) return [createEmptyBlock()];
@@ -849,6 +891,7 @@ export function Editor({
     if (dragOverPos === 'after') insertIdx = targetIdx + 1;
     if (fromIdx < insertIdx) insertIdx -= 1;
 
+    history.push(blocks);
     setBlocks((prev) => {
       const next = [...prev];
       const [moved] = next.splice(fromIdx, 1);
