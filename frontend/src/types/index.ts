@@ -5,6 +5,8 @@ export interface Page {
   icon?: string;
   sort_order: number;
   is_favorite?: number;
+  file_path?: string;
+  frontmatter?: string;
   created_at: number;
   updated_at: number;
   deleted_at?: number;
@@ -31,7 +33,8 @@ export type BlockType =
   | 'code'
   | 'toggle'
   | 'quote'
-  | 'divider';
+  | 'divider'
+  | 'image';
 
 export interface Tab {
   pageId: string;

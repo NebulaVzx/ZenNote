@@ -17,10 +17,10 @@ async function fetchJSON<T>(input: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   listPages: () => fetchJSON<Page[]>('/api/pages'),
-  createPage: (title: string, parentId?: string) =>
+  createPage: (title: string, parentId?: string, filePath?: string, frontmatter?: string) =>
     fetchJSON<{ id: string }>('/api/pages', {
       method: 'POST',
-      body: JSON.stringify({ title, parent_id: parentId }),
+      body: JSON.stringify({ title, parent_id: parentId, file_path: filePath, frontmatter }),
     }),
   getPage: (id: string) => fetchJSON<Page>(`/api/pages/${id}`),
   updatePage: (id: string, payload: { title?: string; icon?: string }) =>

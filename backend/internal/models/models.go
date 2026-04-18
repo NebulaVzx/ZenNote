@@ -2,15 +2,17 @@ package models
 
 // Page represents a notebook page
 type Page struct {
-	ID         string  `json:"id"`
-	ParentID   *string `json:"parent_id"`
-	Title      string  `json:"title"`
-	Icon       *string `json:"icon"`
-	SortOrder  int     `json:"sort_order"`
-	IsFavorite int     `json:"is_favorite"`
-	CreatedAt  int64   `json:"created_at"`
-	UpdatedAt  int64   `json:"updated_at"`
-	DeletedAt  *int64  `json:"deleted_at,omitempty"`
+	ID          string  `json:"id"`
+	ParentID    *string `json:"parent_id"`
+	Title       string  `json:"title"`
+	Icon        *string `json:"icon"`
+	SortOrder   int     `json:"sort_order"`
+	IsFavorite  int     `json:"is_favorite"`
+	FilePath    *string `json:"file_path"`
+	Frontmatter *string `json:"frontmatter"`
+	CreatedAt   int64   `json:"created_at"`
+	UpdatedAt   int64   `json:"updated_at"`
+	DeletedAt   *int64  `json:"deleted_at,omitempty"`
 }
 
 // Block represents a content block within a page

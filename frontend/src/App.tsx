@@ -10,6 +10,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { useToast } from './components/ToastProvider';
 import { api } from './api';
+import { parseMarkdown, generateMarkdown } from './utils/markdown';
 import type { Page, Tab } from './types';
 
 function App() {
@@ -73,25 +74,62 @@ function App() {
   }, []);
 
   const createPage = useCallback(
-    async (parentId?: string) => {
+    async (parentId?: string, title?: string, filePath?: string, frontmatter?: string) => {
+      const targetTitle = title || 'New Page';
       const siblings = pages.filter((p) =>
         parentId ? p.parent_id === parentId : !p.parent_id
       );
       const existingTitles = new Set(siblings.map((p) => p.title));
-      let title = 'New Page';
-      if (existingTitles.has(title)) {
+      let finalTitle = targetTitle;
+      if (existingTitles.has(finalTitle)) {
         let counter = 2;
-        while (existingTitles.has(`${title} ${counter}`)) {
+        while (existingTitles.has(`${finalTitle} ${counter}`)) {
           counter++;
         }
-        title = `${title} ${counter}`;
+        finalTitle = `${finalTitle} ${counter}`;
       }
-      const res = await api.createPage(title, parentId);
+      const res = await api.createPage(finalTitle, parentId, filePath, frontmatter);
       await refreshPages();
       openPage(res.id);
+      return res.id;
     },
     [pages, refreshPages, openPage]
   );
+
+  const handleOpenMarkdownFile = useCallback(async () => {
+    try {
+      const result = await invoke<[content: string, filePath: string] | null>('open_markdown_file');
+      if (!result) return;
+      const [content, filePath] = result;
+      const { frontmatter, blocks } = parseMarkdown(content, '');
+      const title = frontmatter.title || filePath.split(/[\\/]/).pop()?.replace(/\.md$/i, '') || 'Imported Page';
+      const pageId = await createPage(undefined, title, filePath, JSON.stringify(frontmatter));
+      // Update blocks for the new page
+      await api.updateBlocks(pageId, blocks.map((b, i) => ({ ...b, page_id: pageId, sort_order: i })));
+      success(`Opened "${title}"`);
+    } catch (e: any) {
+      showError(e.message || 'Failed to open markdown file');
+    }
+  }, [createPage, success, showError]);
+
+  const handleExportMarkdown = useCallback(async () => {
+    if (!activePageId) return;
+    try {
+      const blocks = await api.getBlocks(activePageId);
+      const page = pageMap.current[activePageId];
+      const frontmatter: Record<string, any> = {};
+      if (page?.frontmatter) {
+        try { Object.assign(frontmatter, JSON.parse(page.frontmatter)); } catch {}
+      }
+      frontmatter.title = page?.title || 'Untitled';
+      if (page?.icon) frontmatter.icon = page.icon;
+      const md = generateMarkdown(blocks, frontmatter);
+      await invoke('save_markdown_file', { filePath: `${page?.title || 'Untitled'}.md`, content: md });
+      success('Exported to Markdown');
+    } catch (e: any) {
+      showError(e.message || 'Failed to export markdown');
+    }
+  }, [activePageId, success, showError]);
 
   const closeTab = useCallback(
     (pageId: string) => {
@@ -232,9 +270,38 @@ function App() {
     setPageSearchCurrentIndex((prev) => (prev - 1 < 0 ? pageSearchTotal - 1 : prev - 1));
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    e.preventDefault();
+
+    for (const file of files) {
+      if (file.name.endsWith('.md')) {
+        const text = await file.text();
+        const { frontmatter, blocks } = parseMarkdown(text, '');
+        const title = frontmatter.title || file.name.replace(/\.md$/i, '');
+        const pageId = await createPage(undefined, title, undefined, JSON.stringify(frontmatter));
+        await api.updateBlocks(pageId, blocks.map((b, i) => ({ ...b, page_id: pageId, sort_order: i })));
+        success(`Opened "${title}"`);
+      }
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full w-full bg-[#191919]">
-      <TitleBar onSettings={() => setSettingsOpen(true)} onToggleSidebar={() => setSidebarOpen((v) => !v)} />
+    <div className="flex flex-col h-full w-full bg-[#191919]" onDragOver={handleDragOver} onDrop={handleDrop}>
+      <TitleBar
+        onSettings={() => setSettingsOpen(true)}
+        onToggleSidebar={() => setSidebarOpen((v) => !v)}
+        onOpenMarkdown={handleOpenMarkdownFile}
+        onExportMarkdown={handleExportMarkdown}
+      />
       <div className="flex flex-1 overflow-hidden">
         {sidebarOpen && (
           <Sidebar
@@ -271,6 +338,8 @@ function App() {
                 pageId={activePage.id}
                 title={activePage.title}
                 icon={activePage.icon}
+                filePath={activePage.file_path}
+                frontmatter={activePage.frontmatter}
                 onTitleChange={(t) => updatePageTitle(activePage.id, t)}
                 onIconChange={(icon) => updatePageIcon(activePage.id, icon)}
                 searchQuery={pageSearchQuery}

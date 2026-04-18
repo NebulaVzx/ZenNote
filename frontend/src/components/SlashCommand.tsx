@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Heading1, Heading2, Heading3, List, ListOrdered, CheckSquare, Code, SquareChevronDown, Minus, Type, Sparkles, Quote } from 'lucide-react';
+import { Heading1, Heading2, Heading3, List, ListOrdered, CheckSquare, Code, SquareChevronDown, Minus, Type, Sparkles, Quote, Image } from 'lucide-react';
 import type { BlockType } from '../types';
 
 export interface SlashItem {
@@ -20,6 +20,7 @@ export const ITEMS: SlashItem[] = [
   { label: 'Code Block', icon: <Code size={16} />, type: 'code', keywords: ['code'] },
   { label: 'Toggle', icon: <SquareChevronDown size={16} />, type: 'toggle', keywords: ['toggle'] },
   { label: 'Divider', icon: <Minus size={16} />, type: 'divider', keywords: ['divider', 'hr'] },
+  { label: 'Image', icon: <Image size={16} />, type: 'image', keywords: ['image', 'img', 'pic'] },
   { label: 'Paragraph', icon: <Type size={16} />, type: 'paragraph', keywords: ['text', 'p'] },
   { label: 'AI Assist', icon: <Sparkles size={16} />, type: 'paragraph', keywords: ['ai'] },
 ];

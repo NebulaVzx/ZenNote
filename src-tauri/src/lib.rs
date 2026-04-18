@@ -31,6 +31,69 @@ fn restart_backend(state: tauri::State<BackendProcess>) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn open_markdown_file(app: tauri::AppHandle) -> Result<Option<(String, String)>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let file_path = app.dialog()
+        .file()
+        .add_filter("Markdown", &["md", "markdown"])
+        .blocking_pick_file();
+
+    match file_path {
+        Some(path) => {
+            let path_str = path.to_string();
+            let content = std::fs::read_to_string(&path_str)
+                .map_err(|e| format!("Failed to read file: {}", e))?;
+            Ok(Some((content, path_str)))
+        }
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+async fn save_markdown_file(file_path: String, content: String) -> Result<(), String> {
+    std::fs::write(&file_path, content)
+        .map_err(|e| format!("Failed to write file: {}", e))
+}
+
+#[tauri::command]
+async fn copy_image_to_assets(app: tauri::AppHandle, source_path: String) -> Result<String, String> {
+    let workspace_path = get_workspace_path(&app);
+    let assets_dir = workspace_path.join(".zennote").join("assets");
+    std::fs::create_dir_all(&assets_dir)
+        .map_err(|e| format!("Failed to create assets dir: {}", e))?;
+
+    let file_name = std::path::Path::new(&source_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("image");
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let dest_name = format!("{}-{}", timestamp, file_name);
+    let dest_path = assets_dir.join(&dest_name);
+
+    std::fs::copy(&source_path, &dest_path)
+        .map_err(|e| format!("Failed to copy image: {}", e))?;
+
+    Ok(dest_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn read_image_base64(_app: tauri::AppHandle, path: String) -> Result<String, String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let bytes = std::fs::read(&path)
+        .map_err(|e| format!("Failed to read image: {}", e))?;
+    Ok(STANDARD.encode(&bytes))
+}
+
+fn get_workspace_path(_app: &tauri::AppHandle) -> PathBuf {
+    let exe_path = std::env::current_exe().unwrap_or_else(|_| std::env::temp_dir());
+    let exe_dir = exe_path.parent().unwrap_or(&exe_path);
+    exe_dir.join("ZenNoteWorkspace")
+}
+
 struct BackendProcess(Mutex<Option<Child>>);
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -109,7 +172,16 @@ fn try_start_backend() -> Option<Child> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, restart_backend])
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            restart_backend,
+            open_markdown_file,
+            save_markdown_file,
+            copy_image_to_assets,
+            read_image_base64
+        ])
         .setup(|app| {
             #[cfg(desktop)]
             {

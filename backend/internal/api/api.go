@@ -35,7 +35,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 func listPages(c *gin.Context) {
 	rows, err := db.DB.Query(`
-		SELECT id, parent_id, title, icon, sort_order, is_favorite, created_at, updated_at, deleted_at
+		SELECT id, parent_id, title, icon, sort_order, is_favorite, file_path, frontmatter, created_at, updated_at, deleted_at
 		FROM pages WHERE deleted_at = 0 OR deleted_at IS NULL
 		ORDER BY sort_order ASC, created_at ASC`)
 	if err != nil {
@@ -49,8 +49,10 @@ func listPages(c *gin.Context) {
 		var p models.Page
 		var parentID sql.NullString
 		var icon sql.NullString
+		var filePath sql.NullString
+		var frontmatter sql.NullString
 		var deletedAt sql.NullInt64
-		err := rows.Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.IsFavorite, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
+		err := rows.Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.IsFavorite, &filePath, &frontmatter, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
 		if err != nil {
 			continue
 		}
@@ -59,6 +61,12 @@ func listPages(c *gin.Context) {
 		}
 		if icon.Valid {
 			p.Icon = &icon.String
+		}
+		if filePath.Valid {
+			p.FilePath = &filePath.String
+		}
+		if frontmatter.Valid {
+			p.Frontmatter = &frontmatter.String
 		}
 		if deletedAt.Valid && deletedAt.Int64 > 0 {
 			p.DeletedAt = &deletedAt.Int64
@@ -70,8 +78,10 @@ func listPages(c *gin.Context) {
 
 func createPage(c *gin.Context) {
 	var req struct {
-		Title    string  `json:"title"`
-		ParentID *string `json:"parent_id"`
+		Title       string  `json:"title"`
+		ParentID    *string `json:"parent_id"`
+		FilePath    *string `json:"file_path,omitempty"`
+		Frontmatter *string `json:"frontmatter,omitempty"`
 	}
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -81,8 +91,8 @@ func createPage(c *gin.Context) {
 	id := generateID("page")
 	now := time.Now().UnixMilli()
 	_, err := db.DB.Exec(
-		"INSERT INTO pages (id, workspace_id, parent_id, title, icon, sort_order, created_at, updated_at) VALUES (?, 'default', ?, ?, '', 0, ?, ?)",
-		id, req.ParentID, req.Title, now, now)
+		"INSERT INTO pages (id, workspace_id, parent_id, title, icon, sort_order, file_path, frontmatter, created_at, updated_at) VALUES (?, 'default', ?, ?, '', 0, ?, ?, ?, ?)",
+		id, req.ParentID, req.Title, req.FilePath, req.Frontmatter, now, now)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -99,9 +109,11 @@ func getPage(c *gin.Context) {
 	var p models.Page
 	var parentID sql.NullString
 	var icon sql.NullString
+	var filePath sql.NullString
+	var frontmatter sql.NullString
 	var deletedAt sql.NullInt64
-	err := db.DB.QueryRow("SELECT id, parent_id, title, icon, sort_order, is_favorite, created_at, updated_at, deleted_at FROM pages WHERE id = ?", id).
-		Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.IsFavorite, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
+	err := db.DB.QueryRow("SELECT id, parent_id, title, icon, sort_order, is_favorite, file_path, frontmatter, created_at, updated_at, deleted_at FROM pages WHERE id = ?", id).
+		Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.IsFavorite, &filePath, &frontmatter, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
@@ -116,6 +128,12 @@ func getPage(c *gin.Context) {
 	if icon.Valid {
 		p.Icon = &icon.String
 	}
+	if filePath.Valid {
+		p.FilePath = &filePath.String
+	}
+	if frontmatter.Valid {
+		p.Frontmatter = &frontmatter.String
+	}
 	if deletedAt.Valid && deletedAt.Int64 > 0 {
 		p.DeletedAt = &deletedAt.Int64
 	}
@@ -125,8 +143,10 @@ func getPage(c *gin.Context) {
 func updatePage(c *gin.Context) {
 	id := c.Param("id")
 	var req struct {
-		Title string  `json:"title"`
-		Icon  *string `json:"icon,omitempty"`
+		Title       string  `json:"title"`
+		Icon        *string `json:"icon,omitempty"`
+		FilePath    *string `json:"file_path,omitempty"`
+		Frontmatter *string `json:"frontmatter,omitempty"`
 	}
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -197,7 +217,7 @@ func deletePage(c *gin.Context) {
 
 func listTrash(c *gin.Context) {
 	rows, err := db.DB.Query(`
-		SELECT id, parent_id, title, icon, sort_order, is_favorite, created_at, updated_at, deleted_at
+		SELECT id, parent_id, title, icon, sort_order, is_favorite, file_path, frontmatter, created_at, updated_at, deleted_at
 		FROM pages WHERE deleted_at > 0 ORDER BY deleted_at DESC`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -210,8 +230,10 @@ func listTrash(c *gin.Context) {
 		var p models.Page
 		var parentID sql.NullString
 		var icon sql.NullString
+		var filePath sql.NullString
+		var frontmatter sql.NullString
 		var deletedAt sql.NullInt64
-		err := rows.Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.IsFavorite, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
+		err := rows.Scan(&p.ID, &parentID, &p.Title, &icon, &p.SortOrder, &p.IsFavorite, &filePath, &frontmatter, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
 		if err != nil {
 			continue
 		}
@@ -220,6 +242,12 @@ func listTrash(c *gin.Context) {
 		}
 		if icon.Valid {
 			p.Icon = &icon.String
+		}
+		if filePath.Valid {
+			p.FilePath = &filePath.String
+		}
+		if frontmatter.Valid {
+			p.Frontmatter = &frontmatter.String
 		}
 		if deletedAt.Valid && deletedAt.Int64 > 0 {
 			p.DeletedAt = &deletedAt.Int64
@@ -399,7 +427,7 @@ func search(c *gin.Context) {
 }
 
 func healthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.2.9"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.3.0"})
 }
 
 func generateID(prefix string) string {

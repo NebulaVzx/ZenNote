@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { api } from '../api';
 import { SlashCommand, ITEMS, type SlashItem } from './SlashCommand';
 import { AIActionPanel } from './AIActionPanel';
@@ -6,12 +7,15 @@ import { EmojiPicker } from './EmojiPicker';
 import SimpleEditor from 'react-simple-code-editor';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
+import { generateMarkdown } from '../utils/markdown';
 import type { Block, BlockType } from '../types';
 
 interface EditorProps {
   pageId: string;
   title: string;
   icon?: string;
+  filePath?: string;
+  frontmatter?: string;
   onTitleChange: (title: string) => void;
   onIconChange?: (icon: string) => void;
   searchQuery: string;
@@ -32,6 +36,7 @@ const PLACEHOLDERS: Record<BlockType, string> = {
   toggle: 'Toggle',
   quote: 'Quote',
   divider: '',
+  image: '',
 };
 
 function generateId(prefix: string) {
@@ -52,6 +57,8 @@ export function Editor({
   pageId,
   title,
   icon,
+  filePath,
+  frontmatter,
   onTitleChange,
   onIconChange,
   searchQuery,
@@ -194,12 +201,21 @@ export function Editor({
         const html = blockRefs.current[i]?.innerHTML || '';
         return { ...b, content: html };
       });
-      api.updateBlocks(pageId, payload).catch(console.error);
+      api.updateBlocks(pageId, payload).then(() => {
+        if (filePath) {
+          const fm: Record<string, any> = {};
+          if (frontmatter) { try { Object.assign(fm, JSON.parse(frontmatter)); } catch {} }
+          fm.title = title;
+          if (icon) fm.icon = icon;
+          const md = generateMarkdown(payload, fm);
+          invoke('save_markdown_file', { filePath, content: md }).catch(console.error);
+        }
+      }).catch(console.error);
     }, 1500);
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
-  }, [blocks, pageId, loaded, flushAllBlocks]);
+  }, [blocks, pageId, loaded, flushAllBlocks, filePath, frontmatter, title, icon]);
 
   // Compute search match count (use DOM text for accuracy)
   useEffect(() => {
@@ -1143,6 +1159,21 @@ export function Editor({
                 ) : block.type === 'divider' ? (
                   <div className="flex-1 py-3">
                     <hr className="border-[#2f2f2f]" />
+                  </div>
+                ) : block.type === 'image' ? (
+                  <div className="flex-1">
+                    {props.src ? (
+                      <img
+                        src={props.src}
+                        alt={block.content || ''}
+                        className="max-w-full rounded border border-[#333]"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="px-3 py-2 bg-[#1e1e1e] border border-[#333] rounded text-gray-500 text-sm">
+                        Image (no source)
+                      </div>
+                    )}
                   </div>
                 ) : block.type === 'code' ? (
                   <div className="flex-1 relative group min-w-0">
