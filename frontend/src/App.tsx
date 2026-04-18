@@ -26,7 +26,6 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [backendOnline, setBackendOnline] = useState(false);
   const [pendingBlockId, setPendingBlockId] = useState<string | null>(null);
   const { success, error: showError } = useToast();
   const pageMap = useRef<Record<string, Page>>({});
@@ -83,40 +82,6 @@ function App() {
     };
   }, []);
 
-  // Health check with short timeout so we don't pile up unresolved fetches
-  // when the port isn't bound yet (default fetch timeout is ~60s).
-  useEffect(() => {
-    let activeController: AbortController | null = null;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const checkHealth = async () => {
-      if (activeController) {
-        activeController.abort();
-      }
-      activeController = new AbortController();
-      const timer = setTimeout(() => activeController?.abort(), 2000);
-
-      try {
-        const res = await fetch('http://localhost:8080/api/health', {
-          method: 'GET',
-          signal: activeController.signal,
-        });
-        clearTimeout(timer);
-        setBackendOnline(res.ok);
-      } catch {
-        clearTimeout(timer);
-        setBackendOnline(false);
-      } finally {
-        timeoutId = setTimeout(checkHealth, 2000);
-      }
-    };
-
-    timeoutId = setTimeout(checkHealth, 500);
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      activeController?.abort();
-    };
-  }, []);
 
   const openPage = useCallback((pageId: string) => {
     const page = pageMap.current[pageId];
@@ -417,27 +382,6 @@ function App() {
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onSelect={(pageId, blockId) => { openPage(pageId); setPendingBlockId(blockId); }} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-
-      {!backendOnline && (
-        <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center">
-          <div className="bg-[#1e1e1e] border border-[#333] rounded-lg p-6 max-w-sm w-full text-center shadow-xl">
-            <div className="text-lg font-medium text-white mb-2">Backend Not Ready</div>
-            <div className="text-sm text-gray-400 mb-4">The local backend is still starting up. Please wait a moment, or restart it if the issue persists.</div>
-            <button
-              onClick={async () => {
-                try {
-                  await invoke('restart_backend');
-                } catch (e) {
-                  showError(String(e));
-                }
-              }}
-              className="px-4 py-2 bg-[#6366f1] hover:bg-[#4f52c4] text-white rounded text-sm font-medium"
-            >
-              Restart Backend
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
