@@ -71,6 +71,46 @@ export const api = {
     fetchJSON<{ ok: boolean; message?: string }>(`/api/ai_configs/${id}/test`, { method: 'POST' }),
   generateAI: (payload: AIGenerateRequest) =>
     fetchJSON<{ content: string }>('/api/ai/generate', { method: 'POST', body: JSON.stringify(payload) }),
+  generateAIStream: async (
+    payload: AIGenerateRequest,
+    { onChunk, onDone, onError }: { onChunk: (text: string) => void; onDone: () => void; onError: (err: string) => void }
+  ) => {
+    try {
+      const res = await fetch(BASE + '/api/ai/generate-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err);
+      }
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No response body');
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+          const data = trimmed.slice(6);
+          if (data === '[DONE]') {
+            onDone();
+            return;
+          }
+          onChunk(data);
+        }
+      }
+      onDone();
+    } catch (e: any) {
+      onError(e.message || 'Stream failed');
+    }
+  },
   toggleFavorite: (id: string, isFavorite: number) =>
     fetchJSON<{ ok: boolean }>(`/api/pages/${id}/favorite`, {
       method: 'PUT',

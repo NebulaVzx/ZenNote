@@ -81,7 +81,18 @@ export interface AIConfig {
   updated_at: number;
 }
 
-export type AIAction = 'continue' | 'polish' | 'translate' | 'explain';
+export type AIAction =
+  | 'continue'
+  | 'polish'
+  | 'translate'
+  | 'explain'
+  | 'summary'
+  | 'shorter'
+  | 'longer'
+  | 'professional'
+  | 'casual'
+  | 'friendly'
+  | 'code';
 
 export interface AIGenerateRequest {
   prompt: string;

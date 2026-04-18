@@ -568,14 +568,25 @@ export function Editor({
     const selectedText = window.getSelection()?.toString() || '';
     const prompt = selectedText || blockText;
 
-    try {
-      const res = await api.generateAI({ prompt, action, language });
-      setAiGhost({ index: idx, content: res.content });
-      setAiPanelOpen(false);
-    } catch (e: any) {
-      window.alert(e.message || 'AI generation failed');
-    }
-    setAiLoading(false);
+    setAiGhost({ index: idx, content: '' });
+    setAiPanelOpen(false);
+
+    await api.generateAIStream(
+      { prompt, action, language },
+      {
+        onChunk: (text) => {
+          setAiGhost((prev) => (prev ? { ...prev, content: prev.content + text } : null));
+        },
+        onDone: () => {
+          setAiLoading(false);
+        },
+        onError: (err) => {
+          setAiLoading(false);
+          setAiGhost(null);
+          window.alert(err);
+        },
+      }
+    );
   };
 
   const acceptAIGhost = () => {
