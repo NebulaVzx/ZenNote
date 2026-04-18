@@ -216,6 +216,69 @@ pub fn run() {
             let backend = try_start_backend();
             app.manage(BackendProcess(Mutex::new(backend)));
 
+            // Create system tray icon
+            #[cfg(desktop)]
+            {
+                let quit_i = tauri::menu::MenuItemBuilder::new("Quit")
+                    .id("quit")
+                    .build(app)?;
+                let show_i = tauri::menu::MenuItemBuilder::new("Show")
+                    .id("show")
+                    .build(app)?;
+                let menu = tauri::menu::MenuBuilder::new(app)
+                    .items(&[&show_i, &quit_i])
+                    .build()?;
+
+                let _tray = tauri::tray::TrayIconBuilder::new()
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .menu(&menu)
+                    .on_menu_event(|app, event| {
+                        match event.id().as_ref() {
+                            "show" => {
+                                app.get_webview_window("main").map(|w| {
+                                    let _ = w.show();
+                                    let _ = w.set_focus();
+                                });
+                            }
+                            "quit" => {
+                                app.get_webview_window("main").map(|w| {
+                                    let size = w.inner_size().unwrap_or(tauri::PhysicalSize::new(1280, 800));
+                                    let pos = w.outer_position().unwrap_or(tauri::PhysicalPosition::new(0, 0));
+                                    let state = WindowState {
+                                        width: size.width,
+                                        height: size.height,
+                                        x: pos.x,
+                                        y: pos.y,
+                                    };
+                                    let path = window_state_path(&w.app_handle());
+                                    if let Some(parent) = path.parent() {
+                                        let _ = std::fs::create_dir_all(parent);
+                                    }
+                                    let _ = std::fs::write(path, serde_json::to_string_pretty(&state).unwrap_or_default());
+                                });
+                                if let Some(state) = app.try_state::<BackendProcess>() {
+                                    if let Ok(mut child) = state.0.lock() {
+                                        if let Some(mut c) = child.take() {
+                                            let _ = c.kill();
+                                        }
+                                    }
+                                }
+                                app.exit(0);
+                            }
+                            _ => {}
+                        }
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let tauri::tray::TrayIconEvent::Click { .. } = event {
+                            tray.app_handle().get_webview_window("main").map(|w| {
+                                let _ = w.show();
+                                let _ = w.set_focus();
+                            });
+                        }
+                    })
+                    .build(app)?;
+            }
+
             // Window is created with visible=false in tauri.conf.json.
             // Only show it after backend is actually ready (or after we
             // give up waiting) so users never see a blank UI.
@@ -229,16 +292,10 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
                 let _ = save_window_state(&window);
-
-                if let Some(state) = window.app_handle().try_state::<BackendProcess>() {
-                    if let Ok(mut child) = state.0.lock() {
-                        if let Some(mut c) = child.take() {
-                            let _ = c.kill();
-                        }
-                    }
-                }
+                let _ = window.hide();
             }
         })
         .run(tauri::generate_context!())

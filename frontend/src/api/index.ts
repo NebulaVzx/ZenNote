@@ -65,6 +65,11 @@ export const api = {
     }),
   triggerUpload: () => fetchJSON<{ ok: boolean }>('/api/sync/upload', { method: 'POST' }),
   triggerDownload: () => fetchJSON<{ ok: boolean }>('/api/sync/download', { method: 'POST' }),
+  subscribeSyncProgress: (onProgress: (p: { phase: string; current: number; total: number; file_name: string; percent: number }) => void) => {
+    const es = new EventSource(BASE + '/api/sync/progress');
+    es.onmessage = (e) => onProgress(JSON.parse(e.data));
+    return () => es.close();
+  },
   listAIConfigs: () => fetchJSON<AIConfig[]>('/api/ai_configs'),
   createAIConfig: (payload: Partial<AIConfig>) =>
     fetchJSON<{ id: string }>('/api/ai_configs', { method: 'POST', body: JSON.stringify(payload) }),

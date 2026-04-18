@@ -2,6 +2,8 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -11,12 +13,32 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+var syncProgressChannel = make(chan sync.SyncProgress, 10)
+
 func registerSyncRoutes(r *gin.Engine) {
 	r.GET("/api/sync/config", getSyncConfig)
 	r.PUT("/api/sync/config", updateSyncConfig)
 	r.POST("/api/sync/config/test", testSyncConnection)
 	r.POST("/api/sync/upload", triggerUpload)
 	r.POST("/api/sync/download", triggerDownload)
+	r.GET("/api/sync/progress", streamSyncProgress)
+}
+
+func streamSyncProgress(c *gin.Context) {
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+
+	for {
+		select {
+		case progress := <-syncProgressChannel:
+			data, _ := json.Marshal(progress)
+			c.Writer.WriteString(fmt.Sprintf("data: %s\n\n", data))
+			c.Writer.Flush()
+		case <-c.Request.Context().Done():
+			return
+		}
+	}
 }
 
 func getSyncConfig(c *gin.Context) {
@@ -131,6 +153,12 @@ func testSyncConnection(c *gin.Context) {
 
 func triggerUpload(c *gin.Context) {
 	syncer := sync.NewSyncer("default", WorkspacePath)
+	syncer.SetOnProgress(func(p sync.SyncProgress) {
+		select {
+		case syncProgressChannel <- p:
+		default:
+		}
+	})
 	if err := syncer.Upload(c.Request.Context()); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -140,6 +168,12 @@ func triggerUpload(c *gin.Context) {
 
 func triggerDownload(c *gin.Context) {
 	syncer := sync.NewSyncer("default", WorkspacePath)
+	syncer.SetOnProgress(func(p sync.SyncProgress) {
+		select {
+		case syncProgressChannel <- p:
+		default:
+		}
+	})
 	if err := syncer.Download(c.Request.Context()); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

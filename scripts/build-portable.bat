@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 :: ZenNote Windows Portable Build Script
 :: Run this from the repository root
 
-set "VERSION=0.3.7"
+set "VERSION=0.3.8"
 
 echo ===========================================
 echo  ZenNote Portable Build for Windows

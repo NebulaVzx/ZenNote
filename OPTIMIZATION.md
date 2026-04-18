@@ -107,11 +107,9 @@
 - **状态**：v0.2.9 已实现。后端启动后台 goroutine，每 30 秒轮询 `sync_configs`，`auto_sync=1` 且间隔满足时自动执行 Upload。SyncStatus 组件显示 "Auto-sync on" 状态。
 - **修复位置**：`backend/main.go`、`frontend/src/components/SyncStatus.tsx`
 
-### 21. 同步进度指示
-- **现状**：仅显示 "Upload complete" / "Download complete" 文字 toast
-- **对标**：语雀显示同步进度条；Notion 显示同步中状态
-- **难度**：M | **影响**：Low
-- **建议**：WebSocket 推送同步进度，或前端轮询进度接口
+### 21. 同步进度指示 [FIXED ✅]
+- **状态**：v0.3.8 已实现。后端 `Syncer` 新增 `SetOnProgress` 回调，扫描/传输/完成阶段触发 `SyncProgress` 事件。新增 `GET /api/sync/progress` SSE 端点推送进度。前端 `SyncStatus` 组件订阅 SSE，显示进度条、当前文件名和百分比。
+- **修复位置**：`backend/internal/sync/syncer.go`、`backend/internal/api/sync.go`、`frontend/src/components/SyncStatus.tsx`
 
 ### 22. Markdown 导入/导出 [FIXED ✅]
 - **状态**：v0.3.0 已实现。支持通过 File 菜单或拖拽打开外部 `.md` 文件，在块编辑器中编辑后自动保存回原文件；支持导出任意页面为 Markdown（含 frontmatter）。新增 `pages.file_path` 和 `pages.frontmatter` 字段。
@@ -153,11 +151,9 @@
 - **状态**：v0.2.3 已实现。Rust 壳在关闭窗口时保存窗口尺寸和位置，下次启动自动恢复。
 - **修复位置**：`src-tauri/src/lib.rs`
 
-### 30. 系统托盘 (Tray)
-- **现状**：关闭窗口即退出
-- **对标**：语雀 / 思源可最小化到托盘
-- **难度**：M | **影响**：Low
-- **建议**：Tauri `tray` 插件，关闭时隐藏窗口，托盘右键退出
+### 30. 系统托盘 (Tray) [FIXED ✅]
+- **状态**：v0.3.8 已实现。`Cargo.toml` 启用 `tray-icon` feature，`lib.rs` 中 `TrayIconBuilder` 创建托盘图标和右键菜单（Show / Quit）。关闭窗口时 `prevent_close()` + `hide()`，托盘右键"退出"才杀死后端并完全退出。
+- **修复位置**：`src-tauri/Cargo.toml`、`src-tauri/src/lib.rs`
 
 ---
 
@@ -246,11 +242,14 @@
 ### P3 — 远期规划 (差异化)
 11. **表格块** (#5) — XL 级。可先以 CSV 渲染简化实现。
 12. **虚拟滚动** (#34) — XL 级。块数 >100 时启用，性能优化。
-13. **同步进度** (#21) — M 级。WebSocket 推送或轮询进度条。
-14. **系统托盘** (#30) — M 级。关闭窗口最小化到托盘而非退出。
+> **P3 批次 A 已完成 ✅** (v0.3.8)
+> - **同步进度** (#21) — v0.3.8 已完成
+> - **系统托盘** (#30) — v0.3.8 已完成
+
+### P3 — 剩余未开始
 15. **冲突 UI** (#33) — XL 级。当前 LWW 自动策略够用，用户有明确冲突时才需要。
 16. **工作区切换** (#16) — L 级。影响面 Low，TitleBar 硬编码即可。
 
 ---
 
-> 文档生成时间：2026-04-18 | 当前版本：v0.3.7
+> 文档生成时间：2026-04-18 | 当前版本：v0.3.8

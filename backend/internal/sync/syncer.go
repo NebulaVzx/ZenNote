@@ -25,10 +25,20 @@ type SyncFile struct {
 	MD5        string
 }
 
+// SyncProgress represents a sync operation progress update
+type SyncProgress struct {
+	Phase    string `json:"phase"`     // "scanning" | "uploading" | "downloading" | "complete" | "error"
+	Current  int    `json:"current"`   // current file index
+	Total    int    `json:"total"`     // total files
+	FileName string `json:"file_name"` // current file name
+	Percent  int    `json:"percent"`   // 0-100
+}
+
 // Syncer orchestrates cloud sync operations
 type Syncer struct {
 	workspaceID   string
 	workspacePath string
+	onProgress    func(SyncProgress)
 }
 
 // NewSyncer creates a Syncer for the given workspace
@@ -37,6 +47,11 @@ func NewSyncer(workspaceID, workspacePath string) *Syncer {
 		workspaceID:   workspaceID,
 		workspacePath: workspacePath,
 	}
+}
+
+// SetOnProgress sets the progress callback
+func (s *Syncer) SetOnProgress(fn func(SyncProgress)) {
+	s.onProgress = fn
 }
 
 // Upload pushes changed local files to S3
@@ -59,11 +74,28 @@ func (s *Syncer) Upload(ctx context.Context) error {
 		return err
 	}
 
+	var toUpload []SyncFile
 	for _, f := range files {
 		meta, ok := metaMap[f.Name]
 		needsUpload := !ok || meta.LocalModifiedAt < f.ModifiedAt || meta.RemoteETag != f.MD5
-		if !needsUpload {
-			continue
+		if needsUpload {
+			toUpload = append(toUpload, f)
+		}
+	}
+
+	if s.onProgress != nil {
+		s.onProgress(SyncProgress{Phase: "scanning", Total: len(toUpload)})
+	}
+
+	for i, f := range toUpload {
+		if s.onProgress != nil {
+			s.onProgress(SyncProgress{
+				Phase:    "uploading",
+				Current:  i + 1,
+				Total:    len(toUpload),
+				FileName: f.Name,
+				Percent:  (i + 1) * 100 / len(toUpload),
+			})
 		}
 
 		file, err := os.Open(f.LocalPath)
@@ -73,6 +105,9 @@ func (s *Syncer) Upload(ctx context.Context) error {
 		err = client.Upload(ctx, f.Name, file, f.Size)
 		file.Close()
 		if err != nil {
+			if s.onProgress != nil {
+				s.onProgress(SyncProgress{Phase: "error", FileName: f.Name})
+			}
 			return fmt.Errorf("upload %s failed: %w", f.Name, err)
 		}
 
@@ -80,6 +115,10 @@ func (s *Syncer) Upload(ctx context.Context) error {
 		if err := s.upsertMetadata(f.Name, f.MD5, now, f.ModifiedAt, now); err != nil {
 			return err
 		}
+	}
+
+	if s.onProgress != nil {
+		s.onProgress(SyncProgress{Phase: "complete", Percent: 100})
 	}
 
 	now := time.Now().UnixMilli()
@@ -116,7 +155,11 @@ func (s *Syncer) Download(ctx context.Context) error {
 		localFilesMap[f.Name] = f
 	}
 
-	needsReinit := false
+	var toDownload []struct {
+		name             string
+		remoteModifiedAt int64
+		remoteETag       string
+	}
 	for key, remote := range remoteFiles {
 		name := s.stripPrefix(key)
 		if name == "" {
@@ -124,18 +167,48 @@ func (s *Syncer) Download(ctx context.Context) error {
 		}
 
 		meta, hasMeta := metaMap[name]
-		local, hasLocal := localFilesMap[name]
-
-		remoteModifiedAt := remote.LastModified.UnixMilli()
-		remoteETag := remote.ETag
 
 		needsDownload := !hasMeta
-		if !needsDownload && meta.RemoteModifiedAt < remoteModifiedAt {
+		if !needsDownload && meta.RemoteModifiedAt < remote.LastModified.UnixMilli() {
 			needsDownload = true
 		}
 
 		if !needsDownload {
 			continue
+		}
+
+		toDownload = append(toDownload, struct {
+			name             string
+			remoteModifiedAt int64
+			remoteETag       string
+		}{
+			name:             name,
+			remoteModifiedAt: remote.LastModified.UnixMilli(),
+			remoteETag:       remote.ETag,
+		})
+	}
+
+	if s.onProgress != nil {
+		s.onProgress(SyncProgress{Phase: "scanning", Total: len(toDownload)})
+	}
+
+	needsReinit := false
+	for i, item := range toDownload {
+		name := item.name
+		remoteModifiedAt := item.remoteModifiedAt
+		remoteETag := item.remoteETag
+
+		local, hasLocal := localFilesMap[name]
+		meta, hasMeta := metaMap[name]
+
+		if s.onProgress != nil {
+			s.onProgress(SyncProgress{
+				Phase:    "downloading",
+				Current:  i + 1,
+				Total:    len(toDownload),
+				FileName: name,
+				Percent:  (i + 1) * 100 / len(toDownload),
+			})
 		}
 
 		// Conflict detection: both local and remote changed since last sync
@@ -158,6 +231,9 @@ func (s *Syncer) Download(ctx context.Context) error {
 		tmpPath := filepath.Join(s.workspacePath, ".zennote", name+".tmp")
 		rc, _, err := client.Download(ctx, name)
 		if err != nil {
+			if s.onProgress != nil {
+				s.onProgress(SyncProgress{Phase: "error", FileName: name})
+			}
 			return fmt.Errorf("download %s failed: %w", name, err)
 		}
 		f, err := os.Create(tmpPath)
@@ -187,6 +263,10 @@ func (s *Syncer) Download(ctx context.Context) error {
 		if err := s.upsertMetadata(name, remoteETag, remoteModifiedAt, localMtime, now); err != nil {
 			return err
 		}
+	}
+
+	if s.onProgress != nil {
+		s.onProgress(SyncProgress{Phase: "complete", Percent: 100})
 	}
 
 	if needsReinit {
