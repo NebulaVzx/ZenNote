@@ -206,11 +206,6 @@ pub fn run() {
             #[cfg(desktop)]
             {
                 if let Some(window) = app.get_webview_window("main") {
-                    // Hide window until backend is ready so users don't see a
-                    // blank UI while SQLite initializes / Windows firewall
-                    // asks for permission on first launch.
-                    let _ = window.hide();
-
                     if let Some(icon) = app.default_window_icon() {
                         let _ = window.set_icon(icon.clone());
                     }
@@ -225,6 +220,9 @@ pub fn run() {
             let backend = try_start_backend();
             app.manage(BackendProcess(Mutex::new(backend)));
 
+            // Window is created with visible=false in tauri.conf.json.
+            // Only show it after backend is actually ready (or after we
+            // give up waiting) so users never see a blank UI.
             #[cfg(desktop)]
             {
                 if let Some(window) = app.get_webview_window("main") {
