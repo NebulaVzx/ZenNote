@@ -53,18 +53,39 @@ function App() {
     refreshPages();
   }, []);
 
+  // Health check with short timeout so we don't pile up unresolved fetches
+  // when the port isn't bound yet (default fetch timeout is ~60s).
   useEffect(() => {
+    let activeController: AbortController | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     const checkHealth = async () => {
+      if (activeController) {
+        activeController.abort();
+      }
+      activeController = new AbortController();
+      const timer = setTimeout(() => activeController?.abort(), 2000);
+
       try {
-        const res = await fetch('http://localhost:8080/api/health', { method: 'GET' });
+        const res = await fetch('http://localhost:8080/api/health', {
+          method: 'GET',
+          signal: activeController.signal,
+        });
+        clearTimeout(timer);
         setBackendOnline(res.ok);
       } catch {
+        clearTimeout(timer);
         setBackendOnline(false);
+      } finally {
+        timeoutId = setTimeout(checkHealth, 2000);
       }
     };
-    checkHealth();
-    const id = setInterval(checkHealth, 3000);
-    return () => clearInterval(id);
+
+    timeoutId = setTimeout(checkHealth, 500);
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      activeController?.abort();
+    };
   }, []);
 
   // Auto-reload pages when backend comes back online
